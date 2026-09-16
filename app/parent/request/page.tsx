@@ -24,11 +24,11 @@ export default function ParentRequestPage() {
   async function loadData() {
     if (!supabase) return;
 
-    const { data: teamData } = await supabase
+    const { data: teamData, error: teamError } = await supabase
       .from("teams")
       .select("id,name")
       .eq("active", true);
-
+if (teamError) setMessage(`Team loading error: ${teamError.message}`);
     setTeams(teamData || []);
 
     const { data: requestData } = await supabase
