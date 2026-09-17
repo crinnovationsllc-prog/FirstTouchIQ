@@ -143,7 +143,8 @@ useEffect(() => {
 
   const selected = players.find((player) => player.id === selectedId);
   const team = teams.find((item) => item.id === selected?.team_id);
-async function saveProgress(assignmentId: string) {
+async function saveProgress(assignmentId: string, status: "in_progress" | "completed") {
+
 
   if (!supabase || !selected) return;
 
@@ -155,7 +156,7 @@ async function saveProgress(assignmentId: string) {
 
     .update({
 
-      status: "in_progress",
+      status,
 
       answers,
 
@@ -275,11 +276,22 @@ async function saveProgress(assignmentId: string) {
                         ? submission.status.replace(/_/g, " ")
                         : "Not started"}
                     </p>
-                   <button type="button" onClick={() => saveProgress(assignment.id)}>
+                   <button type="button" onClick={() => saveProgress(assignment.id, "in_progress")}
 
   Save progress
 
 </button> 
+                  <button
+
+  type="button"
+
+  onClick={() => saveProgress(assignment.id, "completed")}
+
+>
+
+  Mark Complete
+
+</button>
                   </article>
                 );
               })}
