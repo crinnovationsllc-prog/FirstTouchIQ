@@ -153,6 +153,52 @@ async function saveProgress(assignmentId: string) {
 
     .from("parent_managed_submissions")
 
+    .update({
+
+      status: "in_progress",
+
+      answers,
+
+      training_completed: trainingCompleted,
+
+    })
+
+    .eq("assignment_id", assignmentId)
+
+    .eq("managed_player_id", selected.id)
+
+    .select("assignment_id,status,answers,training_completed")
+
+    .single();
+
+  if (error) {
+
+    setAssignmentMessage(`Save failed: ${error.message}`);
+
+    return;
+
+  }
+
+  setSubmissions((previous) => [
+
+    ...previous.filter((item) => item.assignment_id !== assignmentId),
+
+    data,
+
+  ]);
+
+  setAssignmentMessage("Progress saved.");
+
+}
+
+  if (!supabase || !selected) return;
+
+  setAssignmentMessage("Saving progress...");
+
+  const { data, error } = await supabase
+
+    .from("parent_managed_submissions")
+
     .upsert(
 
       {
