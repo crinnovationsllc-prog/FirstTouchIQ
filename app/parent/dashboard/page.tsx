@@ -161,7 +161,7 @@ async function saveProgress(assignmentId: string) {
 
         managed_player_id: selected.id,
 
-        status: "not_started",
+        status: "in_progress",
 
         answers,
 
