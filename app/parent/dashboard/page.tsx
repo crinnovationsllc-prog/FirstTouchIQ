@@ -190,57 +190,6 @@ async function saveProgress(assignmentId: string) {
   setAssignmentMessage("Progress saved.");
 
 }
-
-  if (!supabase || !selected) return;
-
-  setAssignmentMessage("Saving progress...");
-
-  const { data, error } = await supabase
-
-    .from("parent_managed_submissions")
-
-    .upsert(
-
-      {
-
-        assignment_id: assignmentId,
-
-        managed_player_id: selected.id,
-
-        status: "not_started",
-
-        answers,
-
-        training_completed: trainingCompleted,
-
-      },
-
-      { onConflict: "assignment_id,managed_player_id" }
-
-    )
-
-    .select("assignment_id,status,answers,training_completed")
-
-    .single();
-
-  if (error) {
-
-    setAssignmentMessage(`Save failed: ${error.message}`);
-
-    return;
-
-  }
-
-  setSubmissions((previous) => [
-
-    ...previous.filter((item) => item.assignment_id !== assignmentId),
-
-    data,
-
-  ]);
-
-  setAssignmentMessage("Progress saved.");
-}
   
   return (
     <main style={{ maxWidth: 700, margin: "40px auto", padding: 20 }}>
