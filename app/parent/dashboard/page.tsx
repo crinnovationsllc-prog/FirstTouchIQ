@@ -137,6 +137,7 @@ useEffect(() => {
       setSubmissions(submissionData || []);
       setAnswers({});
       setTrainingCompleted(false);
+    }
     loadAssignments();
   }, [players, selectedId]);
 
