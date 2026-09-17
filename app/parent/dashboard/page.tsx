@@ -24,8 +24,15 @@ type Assignment = {
 };
 
 type Submission = {
+
   assignment_id: string;
+
   status: string;
+
+  answers: Record<string, string> | null;
+
+  training_completed: boolean;
+
 };
 
 export default function ParentDashboard() {
@@ -36,8 +43,10 @@ export default function ParentDashboard() {
   const [message, setMessage] = useState("Loading...");
   const [assignmentMessage, setAssignmentMessage] = useState("");
   const [selectedId, setSelectedId] = useState("");
+const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [trainingCompleted, setTrainingCompleted] = useState(false);
 
-  useEffect(() => {
+useEffect(() => {
     async function load() {
       if (!supabase) {
         setMessage("Supabase is not configured.");
@@ -116,7 +125,7 @@ export default function ParentDashboard() {
 
       const { data: submissionData, error: submissionError } = await supabase
         .from("parent_managed_submissions")
-        .select("assignment_id,status")
+        .select("assignment_id,status,answers,training_completed")
         .eq("managed_player_id", selected.id);
 
       if (submissionError) {
@@ -126,14 +135,67 @@ export default function ParentDashboard() {
 
       setAssignments(assignmentData || []);
       setSubmissions(submissionData || []);
-    }
-
+      setAnswers({});
+      setTrainingCompleted(false);
     loadAssignments();
   }, [players, selectedId]);
 
   const selected = players.find((player) => player.id === selectedId);
   const team = teams.find((item) => item.id === selected?.team_id);
+async function saveProgress(assignmentId: string) {
 
+  if (!supabase || !selected) return;
+
+  setAssignmentMessage("Saving progress...");
+
+  const { data, error } = await supabase
+
+    .from("parent_managed_submissions")
+
+    .upsert(
+
+      {
+
+        assignment_id: assignmentId,
+
+        managed_player_id: selected.id,
+
+        status: "in_progress",
+
+        answers,
+
+        training_completed: trainingCompleted,
+
+      },
+
+      { onConflict: "assignment_id,managed_player_id" }
+
+    )
+
+    .select("assignment_id,status,answers,training_completed")
+
+    .single();
+
+  if (error) {
+
+    setAssignmentMessage(`Save failed: ${error.message}`);
+
+    return;
+
+  }
+
+  setSubmissions((previous) => [
+
+    ...previous.filter((item) => item.assignment_id !== assignmentId),
+
+    data,
+
+  ]);
+
+  setAssignmentMessage("Progress saved.");
+}
+  const selected = players.find((player) => player.id === selectedId);
+  const team = teams.find((item) => item.id === selected?.team_id);
   return (
     <main style={{ maxWidth: 700, margin: "40px auto", padding: 20 }}>
       <h1>Parent Dashboard</h1>
@@ -218,6 +280,11 @@ export default function ParentDashboard() {
                         ? submission.status.replace(/_/g, " ")
                         : "Not started"}
                     </p>
+                   <button type="button" onClick={() => saveProgress(assignment.id)}>
+
+  Save progress
+
+</button> 
                   </article>
                 );
               })}
