@@ -276,7 +276,7 @@ async function saveProgress(assignmentId: string, status: "in_progress" | "compl
                         ? submission.status.replace(/_/g, " ")
                         : "Not started"}
                     </p>
-                   <button type="button" onClick={() => saveProgress(assignment.id, "in_progress")}
+              <button type="button" onClick={() => saveProgress(assignment.id, "in_progress")}>
 
   Save progress
 
