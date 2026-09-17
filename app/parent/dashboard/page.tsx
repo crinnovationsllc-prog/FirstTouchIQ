@@ -195,8 +195,7 @@ async function saveProgress(assignmentId: string) {
 
   setAssignmentMessage("Progress saved.");
 }
-  const selected = players.find((player) => player.id === selectedId);
-  const team = teams.find((item) => item.id === selected?.team_id);
+  
   return (
     <main style={{ maxWidth: 700, margin: "40px auto", padding: 20 }}>
       <h1>Parent Dashboard</h1>
