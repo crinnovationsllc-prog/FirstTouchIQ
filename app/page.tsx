@@ -28,6 +28,7 @@ export default function Home() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [managedPlayerCount, setManagedPlayerCount] = useState(0)
   const [managedCompletedCount, setManagedCompletedCount] = useState(0)
+  const [managedSubmissions, setManagedSubmissions] = useState<{ assignment_id: string; status: string }[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null)
@@ -50,6 +51,17 @@ export default function Home() {
     setTeams((t || []) as Team[])
     setAssignments((a || []) as Assignment[])
     setSubmissions((s || []) as Submission[])
+    if (current.role === 'coach') {
+
+  const { data: managed } = await supabase
+
+    .from('parent_managed_submissions')
+
+    .select('assignment_id, status')
+
+  setManagedSubmissions(managed || [])
+
+}
 if (current.role === 'coach') {
 
   const { count: playersCount } = await supabase
@@ -109,7 +121,7 @@ if (current.role === 'coach') {
 
   const isCoach = profile.role === 'coach'
   const playerCount = profiles.filter(p => p.role === 'player').length + managedPlayerCount
-  const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length + managedCompletedCount
+  const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'completed').length
 
   return <>
     <header className="topbar">
@@ -152,7 +164,11 @@ function AuthScreen({mode,setMode,message,setMessage}:{mode:'signin'|'signup';se
 function ProfileMissing({email,onRetry}:{email:string;onRetry:()=>void}){ return <div className="authShell"><div className="authCard"><Logo/><h1>Finishing account setup</h1><p>Your login for <strong>{email}</strong> exists, but the FirstTouchIQ profile has not appeared yet.</p><button className="primary" onClick={onRetry}>Try again</button><p className="muted small">If this continues, the Supabase new-user profile trigger needs to be checked.</p></div></div> }
 
 function CoachDashboard({teams,assignments,submissions,playerCount,submittedCount,onOpen,selected,questions,tasks}:{teams:Team[];assignments:Assignment[];submissions:Submission[];playerCount:number;submittedCount:number;onOpen:(id:string)=>void;selected:string|null;questions:Question[];tasks:Task[]}){
- return <><div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount}/></div><section className="card section"><div className="sectionHead"><div><h2>Assignments</h2><p className="muted">Track what your players are working on.</p></div></div>{assignments.length===0?<Empty text="No assignments yet. Create your first Watch → Think → Train assignment."/>:assignments.map(a=>{const team=teams.find(t=>t.id===a.team_id);const subs=submissions.filter(s=>s.assignment_id===a.id);const done=subs.filter(s=>['submitted','reviewed'].includes(s.status)).length;return <div className="assignmentRow" key={a.id}><div className="grow"><div className="eyebrow">{team?.name||'Team'} · {a.status}</div><h3>{a.title}</h3><div className="muted">Due {fmtDue(a.due_at)} · {done} submitted</div><div className="progress"><i style={{width:`${subs.length?Math.round(done/subs.length*100):0}%`}}/></div></div><button className="secondary" onClick={()=>onOpen(a.id)}>{selected===a.id?'Refresh':'View'}</button></div>})}</section>{selected&&<section className="card section"><h2>Assignment content</h2>{questions.map((q,i)=><div className="contentLine" key={q.id}><b>Question {i+1}</b><span>{q.prompt}</span></div>)}{tasks.map((t,i)=><div className="contentLine" key={t.id}><b>Training {i+1}</b><span>{t.description}</span></div>)}</section>}</>
+ return <><div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount}/></div><section className="card section"><div className="sectionHead"><div><h2>Assignments</h2><p className="muted">Track what your players are working on.</p></div></div>{assignments.length===0?<Empty text="No assignments yet. Create your first Watch → Think → Train assignment."/>:assignments.map(a=>{const team=teams.find(t=>t.id===a.team_id);const managedDone = managedSubmissions.filter(
+
+  s => s.assignment_id === a.id && s.status === 'completed'
+
+).length;const done=subs.filter(s=>['submitted','reviewed'].includes(s.status)).length + managedDone;return <div className="assignmentRow" key={a.id}><div className="grow"><div className="eyebrow">{team?.name||'Team'} · {a.status}</div><h3>{a.title}</h3><div className="muted">Due {fmtDue(a.due_at)} · {done} submitted</div><div className="progress"><i style={{width:`${subs.length + managedSubmissions.filter(s => s.assignment_id === a.id).length?Math.round(done/subs.length*100):0}%`}}/></div></div><button className="secondary" onClick={()=>onOpen(a.id)}>{selected===a.id?'Refresh':'View'}</button></div>})}</section>{selected&&<section className="card section"><h2>Assignment content</h2>{questions.map((q,i)=><div className="contentLine" key={q.id}><b>Question {i+1}</b><span>{q.prompt}</span></div>)}{tasks.map((t,i)=><div className="contentLine" key={t.id}><b>Training {i+1}</b><span>{t.description}</span></div>)}</section>}</>
 }
 function Metric({label,value}:{label:string;value:number}){return <div className="card metric"><span className="muted">{label}</span><b>{value}</b></div>}
 function Empty({text}:{text:string}){return <div className="empty">{text}</div>}
