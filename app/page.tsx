@@ -109,7 +109,7 @@ if (current.role === 'coach') {
 
   const isCoach = profile.role === 'coach'
   const playerCount = profiles.filter(p => p.role === 'player').length + managedPlayerCount
-  const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length
+  const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length + managedCompletedCount
 
   return <>
     <header className="topbar">
