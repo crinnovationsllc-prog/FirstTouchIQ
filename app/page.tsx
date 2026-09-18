@@ -26,6 +26,8 @@ export default function Home() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [managedPlayerCount, setManagedPlayerCount] = useState(0)
+  const [managedCompletedCount, setManagedCompletedCount] = useState(0)
   const [questions, setQuestions] = useState<Question[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null)
@@ -48,7 +50,27 @@ export default function Home() {
     setTeams((t || []) as Team[])
     setAssignments((a || []) as Assignment[])
     setSubmissions((s || []) as Submission[])
+if (current.role === 'coach') {
 
+  const { count: playersCount } = await supabase
+
+    .from('parent_managed_players')
+
+    .select('id', { count: 'exact', head: true })
+
+  const { count: completedCount } = await supabase
+
+    .from('parent_managed_submissions')
+
+    .select('id', { count: 'exact', head: true })
+
+    .eq('status', 'completed')
+
+  setManagedPlayerCount(playersCount ?? 0)
+
+  setManagedCompletedCount(completedCount ?? 0)
+
+}
     if (current.role === 'coach') {
       const { data: people } = await supabase.from('profiles').select('*').eq('active', true).order('display_name')
       setProfiles((people || []) as Profile[])
@@ -86,7 +108,7 @@ export default function Home() {
   if (!profile) return <ProfileMissing email={session.user.email || ''} onRetry={() => loadData(session.user.id)} />
 
   const isCoach = profile.role === 'coach'
-  const playerCount = profiles.filter(p => p.role === 'player').length
+  const playerCount = profiles.filter(p => p.role === 'player').length + managedPlayerCount
   const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length
 
   return <>
