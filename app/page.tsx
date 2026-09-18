@@ -185,12 +185,64 @@ function CreateAssignment({userId,teams,onCreated,setMessage}:{userId:string;tea
 }
 function TeamCreator({userId,onCreated,setMessage}:{userId:string;onCreated:()=>void;setMessage:(m:string)=>void}){const [name,setName]=useState('');async function add(){if(!supabase||!name.trim())return;const {error}=await supabase.from('teams').insert({name:name.trim(),created_by:userId});if(error)setMessage(error.message);else onCreated()}return <div className="callout"><b>No teams yet</b><p>Create your first team before publishing assignments.</p><div className="inline"><input value={name} onChange={e=>setName(e.target.value)} placeholder="12U Girls"/><button className="secondary" type="button" onClick={add}>Create team</button></div></div>}
 
-function Players({teams,profiles,submissions,managedPlayers}: {
+function Players({ teams, profiles, submissions, managedPlayers }: {
   teams: Team[];
   profiles: Profile[];
   submissions: Submission[];
   managedPlayers: { id: string; display_name: string; team_id: string }[];
-}) {const players = profiles.filter(p => p.role === 'player'); const totalPlayers = players.length + managedPlayers.length;return <section className="card"><h2>Players</h2><p className="muted">Player accounts appear here after they create an account.</p>{totalPlayers===0?<Empty text="No player accounts yet."/>:{players.map(p=><div className="playerRow" key={p.id}><div className="avatar">{p.display_name.slice(0,1).toUpperCase()}</div><div className="grow"><b>{p.display_name}</b><div className="muted">{p.username || 'Player'}</div></div><span className="pill">{submissions.filter(s=>s.player_id===p.id && ['submitted','reviewed'].includes(s.status)).length} submitted</span></div>)}{managedPlayers.map(p=><div className="playerRow" key={p.id}><div className="avatar">{p.display_name.slice(0,1).toUpperCase()}</div><div className="grow"><b>{p.display_name}</b><div className="muted">{teams.find(t=>t.id===p.team_id)?.name ?? 'Team'} · Parent-managed</div></div><span className="pill">Parent account</span></div>)}Team membership is managed in the database-backed roster; assignment access follows team membership.</p>}</section>}
+}) {
+  const players = profiles.filter(p => p.role === 'player');
+  const totalPlayers = players.length + managedPlayers.length;
+
+  return (
+    <section className="card">
+      <h2>Players</h2>
+      <p className="muted">
+        Player accounts appear here after they create an account.
+      </p>
+
+      {totalPlayers === 0 && <Empty text="No player accounts yet." />}
+
+      {players.map(p => (
+        <div className="playerRow" key={p.id}>
+          <div className="avatar">
+            {p.display_name.slice(0, 1).toUpperCase()}
+          </div>
+          <div className="grow">
+            <b>{p.display_name}</b>
+            <div className="muted">{p.username || 'Player'}</div>
+          </div>
+          <span className="pill">
+            {submissions.filter(s =>
+              s.player_id === p.id &&
+              ['submitted', 'reviewed'].includes(s.status)
+            ).length} submitted
+          </span>
+        </div>
+      ))}
+
+      {managedPlayers.map(p => (
+        <div className="playerRow" key={p.id}>
+          <div className="avatar">
+            {p.display_name.slice(0, 1).toUpperCase()}
+          </div>
+          <div className="grow">
+            <b>{p.display_name}</b>
+            <div className="muted">
+              {teams.find(t => t.id === p.team_id)?.name ?? 'Team'} · Parent-managed
+            </div>
+          </div>
+          <span className="pill">Parent account</span>
+        </div>
+      ))}
+
+      <p className="muted">
+        Team membership is managed in the database-backed roster;
+        assignment access follows team membership.
+      </p>
+    </section>
+  );
+}
 
 function PlayerDashboard({profile,assignments,submissions,onRefresh,setMessage}:{profile:Profile;assignments:Assignment[];submissions:Submission[];onRefresh:()=>void;setMessage:(m:string)=>void}){
  const [open,setOpen]=useState<Assignment|null>(null);const [qs,setQs]=useState<Question[]>([]);const [ts,setTs]=useState<Task[]>([]);const [answers,setAnswers]=useState<Record<string,string>>({});const [done,setDone]=useState<Record<string,boolean>>({});const [busy,setBusy]=useState(false)
