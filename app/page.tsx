@@ -123,15 +123,8 @@ setManagedPlayers(playerRecords ?? [])
   if (loading) return <div className="center"><div className="spinner"/><p>Loading FirstTouchIQ…</p></div>
   if (!session) return <AuthScreen mode={authMode} setMode={setAuthMode} message={message} setMessage={setMessage} />
   if (!profile) return <ProfileMissing email={session.user.email || ''} onRetry={() => loadData(session.user.id)} />
-
+if (profile.role === 'parent') { window.location.replace('/parent/dashboard'); return null }
   const isCoach = profile.role === 'coach'
-  if (profile.role === 'parent') {
-
-  window.location.replace('/parent/dashboard')
-
-  return null
-
-}
   const playerCount = profiles.filter(p => p.role === 'player').length + managedPlayerCount
   const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'completed').length
 
