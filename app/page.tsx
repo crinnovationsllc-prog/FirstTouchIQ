@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 
-type Profile = { id: string; role: 'coach' | 'player'; display_name: string; username: string | null; active: boolean }
+type Profile = { id: string; role: 'coach' | 'player' | 'parent'; display_name: string; username: string | null; active: boolean }
 type Team = { id: string; name: string; created_by: string; active: boolean }
 type Assignment = { id: string; team_id: string; created_by: string; title: string; instructions: string | null; video_url: string | null; due_at: string | null; status: 'draft' | 'published' | 'archived'; created_at: string }
 type Submission = { id: string; assignment_id: string; player_id: string; status: 'not_started' | 'in_progress' | 'submitted' | 'reviewed'; submitted_at: string | null }
@@ -125,13 +125,20 @@ setManagedPlayers(playerRecords ?? [])
   if (!profile) return <ProfileMissing email={session.user.email || ''} onRetry={() => loadData(session.user.id)} />
 
   const isCoach = profile.role === 'coach'
+  if (profile.role === 'parent') {
+
+  window.location.replace('/parent/dashboard')
+
+  return null
+
+}
   const playerCount = profiles.filter(p => p.role === 'player').length + managedPlayerCount
   const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'completed').length
 
   return <>
     <header className="topbar">
       <div><div className="brand">FirstTouch<span>IQ</span></div><div className="tag">Watch. Think. Train. Develop.</div></div>
-      <div className="userbox"><div><strong>{profile.display_name}</strong><small>{isCoach ? 'Coach' : 'Player'}</small></div><button className="ghost" onClick={() => supabase?.auth.signOut()}>Sign out</button></div>
+      <div className="userbox"><div><strong>{profile.display_name}</strong><small>{profile.role === 'coach' ? 'Coach' : profile.role === 'parent' ? 'Parent' : 'Player'}</small></div><button className="ghost" onClick={() => supabase?.auth.signOut()}>Sign out</button></div>
     </header>
     <main className="wrap">
       {message && <div className="notice">{message}</div>}
