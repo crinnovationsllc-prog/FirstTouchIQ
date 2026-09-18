@@ -131,7 +131,7 @@ if (profile.role === 'parent') { window.location.replace('/parent/dashboard'); r
   return <>
     <header className="topbar">
       <div><div className="brand">FirstTouch<span>IQ</span></div><div className="tag">Watch. Think. Train. Develop.</div></div>
-      <div className="userbox"><div><strong>{profile.display_name}</strong><small>{profile.role === 'coach' ? 'Coach' : profile.role === 'parent' ? 'Parent' : 'Player'}</small></div><button className="ghost" onClick={() => supabase?.auth.signOut()}>Sign out</button></div>
+      <div className="userbox"><div><strong>{profile.display_name}</strong><small>{profile.role === 'coach' ? 'Coach' : 'Player'}</small></div><button className="ghost" onClick={() => supabase?.auth.signOut()}>Sign out</button></div>
     </header>
     <main className="wrap">
       {message && <div className="notice">{message}</div>}
