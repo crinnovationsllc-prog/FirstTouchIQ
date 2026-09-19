@@ -25,6 +25,7 @@ type Submission = {
   assignment_id: string;
   managed_player_id: string;
   status: string;
+  answers: Record<string, string> | null;
 };
 
 export default function CoachProgress() {
@@ -32,6 +33,7 @@ export default function CoachProgress() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [openAnswers, setOpenAnswers] = useState<string | null>(null);
   const [message, setMessage] = useState("Loading...");
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export default function CoachProgress() {
       const { data: submissionData, error: submissionError } =
         await supabase
           .from("parent_managed_submissions")
-          .select("assignment_id,managed_player_id,status");
+          .select("assignment_id,managed_player_id,status,answers");
 
       if (submissionError) {
         setMessage(`Progress error: ${submissionError.message}`);
@@ -178,6 +180,35 @@ export default function CoachProgress() {
                             ? submission.status.replace(/_/g, " ")
                             : "Not started"}
                         </p>
+                        {submission && (
+  <>
+    <button
+      type="button"
+      onClick={() =>
+        setOpenAnswers(
+          openAnswers === `${player.id}-${assignment.id}`
+            ? null
+            : `${player.id}-${assignment.id}`
+        )
+      }
+    >
+      View Answers
+    </button>
+    {openAnswers === `${player.id}-${assignment.id}` && (
+      <div>
+        {Object.entries(submission.answers || {}).length === 0 ? (
+          <p>No answers submitted yet.</p>
+        ) : (
+          Object.entries(submission.answers || {}).map(([questionId, answer]) => (
+            <p key={questionId}>
+              <strong>Answer:</strong> {answer}
+            </p>
+          ))
+        )}
+      </div>
+    )}
+  </>
+)}
                       </div>
                     );
                   })}
