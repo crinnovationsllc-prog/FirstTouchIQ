@@ -32,6 +32,7 @@ export default function CoachProgress() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [questions, setQuestions] = useState<{ id: string; assignment_id: string; prompt: string; position: number }[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [openAnswers, setOpenAnswers] = useState<string | null>(null);
   const [message, setMessage] = useState("Loading...");
@@ -112,6 +113,18 @@ export default function CoachProgress() {
 
       setTeams(teamData || []);
       setPlayers(playerData || []);
+      const { data: questionData, error: questionError } =
+  await supabase
+    .from("questions")
+    .select("id,assignment_id,prompt,position")
+    .order("position");
+
+if (questionError) {
+  setMessage(`Question error: ${questionError.message}`);
+  return;
+}
+
+setQuestions(questionData || []);
       setAssignments(assignmentData || []);
       setSubmissions(submissionData || []);
       setMessage("");
@@ -201,7 +214,10 @@ export default function CoachProgress() {
         ) : (
           Object.entries(submission.answers || {}).map(([questionId, answer]) => (
             <p key={questionId}>
-              <strong>Answer:</strong> {answer}
+              <strong>Question:</strong>{" "}
+{questions.find(q => q.id === questionId)?.prompt ?? "Question unavailable"}
+<br />
+<strong>Answer:</strong> {answer}
             </p>
           ))
         )}
