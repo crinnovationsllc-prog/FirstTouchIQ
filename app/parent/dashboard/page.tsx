@@ -182,7 +182,7 @@ const assignmentAnswers = draftAnswers[assignmentId] ??
   {};
   setAssignmentMessage("Saving progress...");
 
-  const { error } = await supabase
+  const { data, error } = await supabase
 
     .from("parent_managed_submissions")
 
@@ -199,9 +199,11 @@ const assignmentAnswers = draftAnswers[assignmentId] ??
     .eq("assignment_id", assignmentId)
 
     .eq("managed_player_id", selected.id)
-
-    ;
-
+.select("assignment_id");
+if (!error && (!data || data.length === 0)) {
+  setMessage("Save failed: No submission record was updated.");
+  return;
+}
   if (error) {
 
     setAssignmentMessage(`Save failed: ${error.message}`);
