@@ -36,6 +36,13 @@ type Submission = {
 };
 
 export default function ParentDashboard() {
+  async function signOut() {
+
+  await supabase?.auth.signOut()
+
+  window.location.href = '/'
+
+}
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -195,6 +202,7 @@ async function saveProgress(assignmentId: string, status: "in_progress" | "compl
   return (
     <main style={{ maxWidth: 700, margin: "40px auto", padding: 20 }}>
       <h1>Parent Dashboard</h1>
+      <button onClick={signOut}>Sign out</button>
       <p>Manage your children's FirstTouchIQ profiles.</p>
 
       {message && <p role="status">{message}</p>}
