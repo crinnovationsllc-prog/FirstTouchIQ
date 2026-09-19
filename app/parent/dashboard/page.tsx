@@ -202,7 +202,7 @@ async function saveProgress(assignmentId: string, status: "in_progress" | "compl
   },
 
 ]);
-
+setAssignmentMessage("Progress saved.");
 }
   
   return (
