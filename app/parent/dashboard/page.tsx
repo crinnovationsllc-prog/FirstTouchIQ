@@ -22,7 +22,13 @@ type Assignment = {
   video_url: string | null;
   due_at: string | null;
 };
-
+type Question = {
+  id: string;
+  assignment_id: string;
+  position: number;
+  prompt: string;
+  required: boolean;
+};
 type Submission = {
 
   assignment_id: string;
@@ -46,11 +52,13 @@ export default function ParentDashboard() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [message, setMessage] = useState("Loading...");
   const [assignmentMessage, setAssignmentMessage] = useState("");
   const [selectedId, setSelectedId] = useState("");
 const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [draftAnswers, setDraftAnswers] = useState<Record<string, Record<string, string>>>({});
   const [trainingCompleted, setTrainingCompleted] = useState(false);
 
 useEffect(() => {
@@ -111,7 +119,9 @@ useEffect(() => {
   useEffect(() => {
     async function loadAssignments() {
       setAssignments([]);
+      setQuestions([]);
       setSubmissions([]);
+      setDraftAnswers({});
       setAssignmentMessage("");
 
       const selected = players.find((player) => player.id === selectedId);
@@ -129,7 +139,20 @@ useEffect(() => {
         setAssignmentMessage(`Assignment error: ${assignmentError.message}`);
         return;
       }
+      if (assignmentData && assignmentData.length > 0) {
+  const { data: questionData, error: questionError } = await supabase
+    .from("questions")
+    .select("id,assignment_id,position,prompt,required")
+    .in("assignment_id", assignmentData.map((assignment) => assignment.id))
+    .order("position");
 
+  if (questionError) {
+    setAssignmentMessage(`Question error: ${questionError.message}`);
+    return;
+  }
+
+  setQuestions(questionData || []);
+}
       const { data: submissionData, error: submissionError } = await supabase
         .from("parent_managed_submissions")
         .select("assignment_id,status,answers,training_completed")
@@ -154,7 +177,9 @@ async function saveProgress(assignmentId: string, status: "in_progress" | "compl
 
 
   if (!supabase || !selected) return;
-
+const assignmentAnswers = draftAnswers[assignmentId] ??
+  submissions.find((item) => item.assignment_id === assignmentId)?.answers ??
+  {};
   setAssignmentMessage("Saving progress...");
 
   const { error } = await supabase
@@ -165,7 +190,7 @@ async function saveProgress(assignmentId: string, status: "in_progress" | "compl
 
       status,
 
-      answers,
+      answers: assignmentAnswers,
 
       training_completed: trainingCompleted,
 
@@ -195,7 +220,7 @@ async function saveProgress(assignmentId: string, status: "in_progress" | "compl
 
     status,
 
-    answers,
+    answers: assignmentAnswers,
 
     training_completed: trainingCompleted,
 
@@ -283,7 +308,36 @@ setAssignmentMessage("Progress saved.");
                         </a>
                       </p>
                     )}
-
+{questions
+  .filter((question) => question.assignment_id === assignment.id)
+  .map((question) => (
+    <div key={question.id} style={{ marginBottom: 15 }}>
+      <label htmlFor={`answer-${assignment.id}-${question.id}`}>
+        {question.prompt}
+      </label>
+      <textarea
+        id={`answer-${assignment.id}-${question.id}`}
+        value={
+          draftAnswers[assignment.id]?.[question.id] ??
+          submission?.answers?.[question.id] ??
+          ""
+        }
+        onChange={(event) =>
+          setDraftAnswers((previous) => ({
+            ...previous,
+            [assignment.id]: {
+              ...(previous[assignment.id] ??
+                submission?.answers ??
+                {}),
+              [question.id]: event.target.value,
+            },
+          }))
+        }
+        rows={3}
+        style={{ display: "block", width: "100%", marginTop: 6 }}
+      />
+    </div>
+  ))}
                     <p>
                       Status:{" "}
                       {submission?.status
