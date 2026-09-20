@@ -297,4 +297,19 @@ USING (
       AND public.is_team_coach(a.team_id)
   )
 );
+-- Approved coaches can view player answers for their teams.
+CREATE POLICY answers_team_coaches_read
+ON public.answers
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.submissions s
+    JOIN public.assignments a
+      ON a.id = s.assignment_id
+    WHERE s.id = answers.submission_id
+      AND public.is_team_coach(a.team_id)
+  )
+);
 COMMIT;
