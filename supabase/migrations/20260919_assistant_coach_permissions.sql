@@ -364,4 +364,35 @@ WITH CHECK (
       )
   )
 );
+-- Administrator can manage training tasks on any assignment.
+ALTER POLICY tasks_coach_manage
+ON public.training_tasks
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    WHERE a.id = training_tasks.assignment_id
+      AND (
+        public.is_app_admin()
+        OR (
+          a.created_by = auth.uid()
+          AND public.is_team_coach(a.team_id)
+        )
+      )
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    WHERE a.id = training_tasks.assignment_id
+      AND (
+        public.is_app_admin()
+        OR (
+          a.created_by = auth.uid()
+          AND public.is_team_coach(a.team_id)
+        )
+      )
+  )
+);
 COMMIT;
