@@ -271,4 +271,17 @@ ON public.parent_managed_players
 FOR SELECT
 TO authenticated
 USING (public.is_team_coach(team_id));
+-- Approved coaches can view questions for their teams.
+CREATE POLICY questions_team_coaches_read
+ON public.questions
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    WHERE a.id = questions.assignment_id
+      AND public.is_team_coach(a.team_id)
+  )
+);
 COMMIT;
