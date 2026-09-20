@@ -265,4 +265,10 @@ USING (
       AND public.is_team_coach(a.team_id)
   )
 );
+-- Approved coaches can view players on their assigned teams.
+CREATE POLICY managed_players_team_coaches_read
+ON public.parent_managed_players
+FOR SELECT
+TO authenticated
+USING (public.is_team_coach(team_id));
 COMMIT;
