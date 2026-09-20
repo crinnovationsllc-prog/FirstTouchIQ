@@ -284,4 +284,17 @@ USING (
       AND public.is_team_coach(a.team_id)
   )
 );
+-- Approved coaches can view training tasks for their teams.
+CREATE POLICY training_tasks_team_coaches_read
+ON public.training_tasks
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    WHERE a.id = training_tasks.assignment_id
+      AND public.is_team_coach(a.team_id)
+  )
+);
 COMMIT;
