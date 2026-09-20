@@ -190,4 +190,79 @@ CREATE TRIGGER protect_assignment_owner
 BEFORE UPDATE ON public.assignments
 FOR EACH ROW
 EXECUTE FUNCTION public.protect_assignment_owner();
+-- Only the administrator can update player submissions.
+ALTER POLICY submissions_coach_update
+ON public.submissions
+USING (
+  public.is_app_admin()
+  AND EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    WHERE a.id = submissions.assignment_id
+  )
+)
+WITH CHECK (
+  public.is_app_admin()
+  AND EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    WHERE a.id = submissions.assignment_id
+  )
+);
+-- Approved coaches can view player submissions.
+CREATE POLICY submissions_team_coaches_read
+ON public.submissions
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    WHERE a.id = submissions.assignment_id
+      AND public.is_team_coach(a.team_id)
+  )
+);
+-- Approved coaches can view parent-managed submissions.
+CREATE POLICY managed_submissions_team_coaches_read
+ON public.parent_managed_submissions
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    WHERE a.id = parent_managed_submissions.assignment_id
+      AND public.is_team_coach(a.team_id)
+  )
+);
+-- Approved coaches can view parent-managed answers.
+CREATE POLICY managed_answers_team_coaches_read
+ON public.parent_managed_answers
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.parent_managed_submissions s
+    JOIN public.assignments a
+      ON a.id = s.assignment_id
+    WHERE s.id = parent_managed_answers.submission_id
+      AND public.is_team_coach(a.team_id)
+  )
+);
+-- Approved coaches can view training-task completion records.
+CREATE POLICY managed_tasks_team_coaches_read
+ON public.parent_managed_task_completions
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.parent_managed_submissions s
+    JOIN public.assignments a
+      ON a.id = s.assignment_id
+    WHERE s.id = parent_managed_task_completions.submission_id
+      AND public.is_team_coach(a.team_id)
+  )
+);
 COMMIT;
