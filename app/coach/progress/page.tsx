@@ -212,7 +212,12 @@ setQuestions(questionData || []);
         {Object.entries(submission.answers || {}).length === 0 ? (
           <p>No answers submitted yet.</p>
         ) : (
-          Object.entries(submission.answers || {}).map(([questionId, answer]) => (
+          Object.entries(submission.answers || {})
+  .sort(([a], [b]) =>
+    (questions.find(q => q.id === a)?.position ?? 999) -
+    (questions.find(q => q.id === b)?.position ?? 999)
+  )
+  .map(([questionId, answer]) => (
             <p key={questionId}>
               <strong>Question:</strong>{" "}
 {questions.find(q => q.id === questionId)?.prompt ?? "Question unavailable"}
