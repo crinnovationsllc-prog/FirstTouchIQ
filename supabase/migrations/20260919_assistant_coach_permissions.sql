@@ -333,4 +333,35 @@ ON public.team_members
 FOR SELECT
 TO authenticated
 USING (public.is_team_coach(team_id));
+-- Administrator can manage questions on any assignment.
+ALTER POLICY questions_coach_manage
+ON public.questions
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    WHERE a.id = questions.assignment_id
+      AND (
+        public.is_app_admin()
+        OR (
+          a.created_by = auth.uid()
+          AND public.is_team_coach(a.team_id)
+        )
+      )
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.assignments a
+    WHERE a.id = questions.assignment_id
+      AND (
+        public.is_app_admin()
+        OR (
+          a.created_by = auth.uid()
+          AND public.is_team_coach(a.team_id)
+        )
+      )
+  )
+);
 COMMIT;
