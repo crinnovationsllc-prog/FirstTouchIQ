@@ -327,4 +327,10 @@ USING (
       AND public.is_team_coach(a.team_id)
   )
 );
+-- Approved coaches can view player rosters for their teams.
+CREATE POLICY team_members_team_coaches_read
+ON public.team_members
+FOR SELECT
+TO authenticated
+USING (public.is_team_coach(team_id));
 COMMIT;
