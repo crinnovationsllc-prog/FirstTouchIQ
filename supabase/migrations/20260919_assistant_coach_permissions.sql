@@ -132,4 +132,62 @@ ALTER POLICY profiles_coach_manage
 ON public.profiles
 USING (public.is_app_admin())
 WITH CHECK (public.is_app_admin());
+-- Approved coaches can view their assigned teams.
+CREATE POLICY team_coaches_read_assigned
+ON public.teams
+FOR SELECT
+TO authenticated
+USING (public.is_team_coach(id));
+-- Approved coaches can view assignments for their teams.
+CREATE POLICY assignments_team_coaches_read
+ON public.assignments
+FOR SELECT
+TO authenticated
+USING (public.is_team_coach(team_id));
+-- Approved coaches can create assignments for their teams.
+CREATE POLICY assignments_team_coaches_insert
+ON public.assignments
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  created_by = (SELECT auth.uid())
+  AND public.is_team_coach(team_id)
+);
+-- Assistants may edit their own assignments.
+-- Administrators may edit any assignment.
+ALTER POLICY assignments_coach_manage
+ON public.assignments
+USING (
+  public.is_app_admin()
+  OR (
+    created_by = (SELECT auth.uid())
+    AND public.is_team_coach(team_id)
+  )
+)
+WITH CHECK (
+  public.is_app_admin()
+  OR (
+    created_by = (SELECT auth.uid())
+    AND public.is_team_coach(team_id)
+  )
+);
+-- Prevent assignment ownership from being changed.
+CREATE OR REPLACE FUNCTION public.protect_assignment_owner()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.created_by IS DISTINCT FROM OLD.created_by THEN
+    RAISE EXCEPTION 'Assignment ownership cannot be changed';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER protect_assignment_owner
+BEFORE UPDATE ON public.assignments
+FOR EACH ROW
+EXECUTE FUNCTION public.protect_assignment_owner();
 COMMIT;
