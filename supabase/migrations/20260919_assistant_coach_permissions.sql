@@ -312,4 +312,19 @@ USING (
       AND public.is_team_coach(a.team_id)
   )
 );
+-- Approved coaches can view player training-task completions.
+CREATE POLICY task_completions_team_coaches_read
+ON public.task_completions
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.submissions s
+    JOIN public.assignments a
+      ON a.id = s.assignment_id
+    WHERE s.id = task_completions.submission_id
+      AND public.is_team_coach(a.team_id)
+  )
+);
 COMMIT;
