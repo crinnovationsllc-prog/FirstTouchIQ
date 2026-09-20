@@ -1,3 +1,4 @@
+
 -- FirstTouchIQ: assistant-coach permissions
 -- STAGE 2: Draft only. Do not apply to Supabase yet.
 
