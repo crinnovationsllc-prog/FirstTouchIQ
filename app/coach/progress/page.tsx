@@ -71,8 +71,8 @@ export default function CoachProgress() {
       const { data: teamData, error: teamError } =
         await supabase
           .from("teams")
-          .select("id,name")
-          .eq("created_by", auth.user.id);
+.select("id,name")
+.eq("active", true);
 
       if (teamError) {
         setMessage(`Team error: ${teamError.message}`);
@@ -92,9 +92,8 @@ export default function CoachProgress() {
       const { data: assignmentData, error: assignmentError } =
         await supabase
           .from("assignments")
-          .select("id,team_id,title")
-          .eq("created_by", auth.user.id)
-          .eq("status", "published");
+.select("id,team_id,title")
+.eq("status", "published");
 
       if (assignmentError) {
         setMessage(`Assignment error: ${assignmentError.message}`);
