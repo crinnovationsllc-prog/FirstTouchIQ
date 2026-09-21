@@ -43,7 +43,14 @@ export default function Home() {
     const current = p as Profile | null
     setProfile(current)
     if (!current) { setLoading(false); return }
-
+if (current.role === 'coach' && !current.active) {
+  setTeams([])
+  setAssignments([])
+  setSubmissions([])
+  setProfiles([])
+  setLoading(false)
+  return
+}
     const [{data:t},{data:a},{data:s}] = await Promise.all([
       supabase.from('teams').select('*').eq('active', true).order('created_at'),
       supabase.from('assignments').select('*').order('created_at', {ascending:false}),
