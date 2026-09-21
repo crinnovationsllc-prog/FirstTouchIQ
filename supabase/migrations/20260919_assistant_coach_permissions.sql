@@ -133,6 +133,11 @@ ALTER POLICY profiles_coach_manage
 ON public.profiles
 USING (public.is_app_admin())
 WITH CHECK (public.is_app_admin());
+-- Only the administrator can create, edit, or delete teams.
+ALTER POLICY teams_coach_manage
+ON public.teams
+USING (public.is_app_admin())
+WITH CHECK (public.is_app_admin());
 -- Approved coaches can view their assigned teams.
 CREATE POLICY team_coaches_read_assigned
 ON public.teams
