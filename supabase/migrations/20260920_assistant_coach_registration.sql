@@ -133,5 +133,19 @@ FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.review_coach_request(uuid, text)
 TO authenticated;
+-- Allow administrators to view all coach applications.
+-- Applicants can view only their own applications.
+GRANT SELECT ON public.coach_registration_requests
+TO authenticated;
+
+CREATE POLICY coach_requests_admin_read
+ON public.coach_registration_requests
+FOR SELECT TO authenticated
+USING (public.is_app_admin());
+
+CREATE POLICY coach_requests_applicant_read
+ON public.coach_registration_requests
+FOR SELECT TO authenticated
+USING (applicant_id = (SELECT auth.uid()));
 
 COMMIT;
