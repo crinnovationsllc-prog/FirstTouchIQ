@@ -333,6 +333,11 @@ USING (
       AND public.is_team_coach(a.team_id)
   )
 );
+-- Only the administrator can add or remove team members.
+ALTER POLICY team_members_coach_manage
+ON public.team_members
+USING (public.is_app_admin())
+WITH CHECK (public.is_app_admin());
 -- Approved coaches can view player rosters for their teams.
 CREATE POLICY team_members_team_coaches_read
 ON public.team_members
