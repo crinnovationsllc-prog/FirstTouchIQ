@@ -19,6 +19,7 @@ export default function Home() {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [message, setMessage] = useState('')
   const [authMode, setAuthMode] = useState<'signin'|'signup'>('signin')
   const [tab, setTab] = useState<Tab>('dashboard')
@@ -42,6 +43,12 @@ export default function Home() {
     if (pErr) setMessage(pErr.message)
     const current = p as Profile | null
     setProfile(current)
+    if (current?.role === 'coach' && current.active) {
+  const { data: admin } = await supabase.rpc('is_app_admin')
+  setIsAdmin(admin === true)
+} else {
+  setIsAdmin(false)
+}
     if (!current) { setLoading(false); return }
 if (current.role === 'coach' && !current.active) {
   setTeams([])
