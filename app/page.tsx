@@ -123,6 +123,7 @@ setManagedPlayers(playerRecords ?? [])
   if (loading) return <div className="center"><div className="spinner"/><p>Loading FirstTouchIQ…</p></div>
   if (!session) return <AuthScreen mode={authMode} setMode={setAuthMode} message={message} setMessage={setMessage} />
   if (!profile) return <ProfileMissing email={session.user.email || ''} onRetry={() => loadData(session.user.id)} />
+  if (profile.role === 'parent') { window.location.replace('/parent/dashboard'); return null }
 if (profile.role === 'coach' && !profile.active) {
   return (
     <div className="authShell">
