@@ -159,6 +159,7 @@ if (profile.role === 'coach' && !profile.active) {
   )
 }
   const isCoach = profile.role === 'coach'
+  const canManageRegistrations = isCoach && isAdmin
   const playerCount = profiles.filter(p => p.role === 'player').length + managedPlayerCount
   const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'completed').length
 
@@ -170,6 +171,11 @@ if (profile.role === 'coach' && !profile.active) {
     <main className="wrap">
       {message && <div className="notice">{message}</div>}
       {isCoach ? <>
+        {canManageRegistrations && (
+  <a href="/coach/registrations" className="btn">
+    Manage Registrations
+  </a>
+)}
        <a href="/coach/progress" className="btn">Player Progress</a> <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button></nav>
         {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions}managedSubmissions={managedSubmissions} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
