@@ -41,7 +41,7 @@ export default function ParentPage() {
         setMessage(error.message);
       } else {
         setMessage(
-          "Registration request received. Check your email for a confirmation link. Parent access is not available yet."
+          "Account created. Check your email for a confirmation link, then sign in and register your player."
         );
       }
     } catch {
