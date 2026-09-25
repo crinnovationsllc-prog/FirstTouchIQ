@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 
-type Profile = { id: string; role: 'coach' | 'player'; display_name: string; username: string | null; active: boolean }
+type Profile = { id: string; role: 'coach' | 'player' | 'parent'; display_name: string; username: string | null; active: boolean }
 type Team = { id: string; name: string; created_by: string; active: boolean }
 type Assignment = { id: string; team_id: string; created_by: string; title: string; instructions: string | null; video_url: string | null; due_at: string | null; status: 'draft' | 'published' | 'archived'; created_at: string }
 type Submission = { id: string; assignment_id: string; player_id: string; status: 'not_started' | 'in_progress' | 'submitted' | 'reviewed'; submitted_at: string | null }
@@ -39,6 +39,7 @@ export default function Home() {
     const current = p as Profile | null
     setProfile(current)
     if (!current) { setLoading(false); return }
+    if (current.role === 'parent') { window.location.assign('/parent/dashboard'); return }
 
     const [{data:t},{data:a},{data:s}] = await Promise.all([
       supabase.from('teams').select('*').eq('active', true).order('created_at'),
@@ -85,6 +86,7 @@ export default function Home() {
   if (!session) return <AuthScreen mode={authMode} setMode={setAuthMode} message={message} setMessage={setMessage} />
   if (!profile) return <ProfileMissing email={session.user.email || ''} onRetry={() => loadData(session.user.id)} />
 
+  if (profile.role === 'parent') return <div className="center"><div className="spinner"/><p>Opening parent dashboard…</p></div>
   const isCoach = profile.role === 'coach'
   const playerCount = profiles.filter(p => p.role === 'player').length
   const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length
@@ -124,7 +126,7 @@ function AuthScreen({mode,setMode,message,setMessage}:{mode:'signin'|'signup';se
     }
     setBusy(false)
   }
-  return <div className="authShell"><div className="authCard"><Logo/><h1>{mode==='signin'?'Welcome back':'Create your account'}</h1><p className="muted">{mode==='signin'?'Sign in to your FirstTouchIQ dashboard.':'Coaches manage teams and assignments. Players complete assigned work.'}</p>{message&&<div className="notice">{message}</div>}<form className="form" onSubmit={submit}>{mode==='signup'&&<><label>Full name<input name="name" required placeholder="Your name"/></label><label>Account type<select name="role" defaultValue="player"><option value="player">Player</option><option value="coach">Coach</option></select></label></>}<label>Email<input name="email" type="email" required autoComplete="email"/></label><label>Password<input name="password" type="password" minLength={6} required autoComplete={mode==='signin'?'current-password':'new-password'}/></label><button className="primary" disabled={busy}>{busy?'Please wait…':mode==='signin'?'Sign in':'Create account'}</button></form><button className="linkButton" onClick={()=>{setMode(mode==='signin'?'signup':'signin');setMessage('')}}>{mode==='signin'?'Need an account? Create one':'Already have an account? Sign in'}</button></div></div>
+  return <div className="authShell"><div className="authCard"><Logo/><h1>{mode==='signin'?'Welcome back':'Create your account'}</h1><p className="muted">{mode==='signin'?'Sign in to your FirstTouchIQ dashboard.':'Coaches manage teams and assignments. Players complete assigned work.'}</p>{message&&<div className="notice">{message}</div>}<form className="form" onSubmit={submit}>{mode==='signup'&&<><label>Full name<input name="name" required placeholder="Your name"/></label><label>Account type<select name="role" defaultValue="player"><option value="player">Player</option><option value="coach">Coach</option></select></label></>}<label>Email<input name="email" type="email" required autoComplete="email"/></label><label>Password<input name="password" type="password" minLength={6} required autoComplete={mode==='signin'?'current-password':'new-password'}/></label><button className="primary" disabled={busy}>{busy?'Please wait…':mode==='signin'?'Sign in':'Create account'}</button></form><button className="linkButton" onClick={()=>{if(mode==='signin') window.location.assign('/parent'); else {setMode('signin');setMessage('')}}}>{mode==='signin'?'Need an account? Register as a parent':'Already have an account? Sign in'}</button></div></div>
 }
 
 function ProfileMissing({email,onRetry}:{email:string;onRetry:()=>void}){ return <div className="authShell"><div className="authCard"><Logo/><h1>Finishing account setup</h1><p>Your login for <strong>{email}</strong> exists, but the FirstTouchIQ profile has not appeared yet.</p><button className="primary" onClick={onRetry}>Try again</button><p className="muted small">If this continues, the Supabase new-user profile trigger needs to be checked.</p></div></div> }
