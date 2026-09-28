@@ -1,385 +1,212 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { supabase, supabaseConfigured } from '../lib/supabase'
 
-type Player = {
-  id: string;
-  display_name: string;
-  team_id: string;
-};
+type Profile = { id: string; role: 'coach' | 'player' | 'parent'; display_name: string; username: string | null; active: boolean }
+type Team = { id: string; name: string; created_by: string; active: boolean }
+type Assignment = { id: string; team_id: string; created_by: string; title: string; instructions: string | null; video_url: string | null; due_at: string | null; status: 'draft' | 'published' | 'archived'; created_at: string }
+type Submission = { id: string; assignment_id: string; player_id: string; status: 'not_started' | 'in_progress' | 'submitted' | 'reviewed'; submitted_at: string | null }
+type ManagedPlayer = { id: string; display_name: string; team_id: string }
+type ManagedSubmission = { assignment_id: string; managed_player_id: string; status: string; answers: Record<string,string> | null }
+type Question = { id: string; assignment_id: string; position: number; prompt: string; type: string; required: boolean }
+type Task = { id: string; assignment_id: string; position: number; description: string; required: boolean }
 
-type Team = {
-  id: string;
-  name: string;
-};
+type Tab = 'dashboard' | 'create' | 'players'
 
-type Assignment = {
-  id: string;
-  team_id: string;
-  title: string;
-  instructions: string | null;
-  video_url: string | null;
-  due_at: string | null;
-};
-type Question = {
-  id: string;
-  assignment_id: string;
-  position: number;
-  prompt: string;
-  required: boolean;
-};
-type Submission = {
+const fmtDue = (value: string | null) => value ? new Intl.DateTimeFormat('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }).format(new Date(value)) : 'No due date'
 
-  assignment_id: string;
+export default function Home() {
+  const [session, setSession] = useState<Session | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
+  const [authMode, setAuthMode] = useState<'signin'|'signup'|'forgot'|'recovery'>('signin')
+  const [tab, setTab] = useState<Tab>('dashboard')
+  const [teams, setTeams] = useState<Team[]>([])
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [managedPlayers, setManagedPlayers] = useState<ManagedPlayer[]>([])
+  const [managedSubmissions, setManagedSubmissions] = useState<ManagedSubmission[]>([])
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null)
 
-  status: string;
+  const loadData = useCallback(async (userId: string) => {
+    if (!supabase) return
+    setLoading(true)
+    setMessage('')
+    const { data: p, error: pErr } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+    if (pErr) setMessage(pErr.message)
+    const current = p as Profile | null
+    setProfile(current)
+    if (!current) { setLoading(false); return }
+    if (current.role === 'parent') { window.location.assign('/parent/dashboard'); return }
 
-  answers: Record<string, string> | null;
+    const [{data:t},{data:a},{data:s}] = await Promise.all([
+      supabase.from('teams').select('*').eq('active', true).order('created_at'),
+      supabase.from('assignments').select('*').order('created_at', {ascending:false}),
+      supabase.from('submissions').select('*')
+    ])
+    setTeams((t || []) as Team[])
+    setAssignments((a || []) as Assignment[])
+    setSubmissions((s || []) as Submission[])
 
-  training_completed: boolean;
-
-};
-
-export default function ParentDashboard() {
-  async function signOut() {
-
-  await supabase?.auth.signOut()
-
-  window.location.href = '/'
-
-}
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [message, setMessage] = useState("Loading...");
-  const [assignmentMessage, setAssignmentMessage] = useState("");
-  const [selectedId, setSelectedId] = useState("");
-const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [draftAnswers, setDraftAnswers] = useState<Record<string, Record<string, string>>>({});
-  const [trainingCompleted, setTrainingCompleted] = useState(false);
-
-useEffect(() => {
-    async function load() {
-      if (!supabase) {
-        setMessage("Supabase is not configured.");
-        return;
-      }
-
-      const { data: auth } = await supabase.auth.getUser();
-
-      if (!auth.user) {
-        setMessage("Please sign in to your parent account.");
-        return;
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role,active")
-        .eq("id", auth.user.id)
-        .single();
-
-      if (profileError || profile?.role !== "parent" || !profile.active) {
-        setMessage("An active parent account is required.");
-        return;
-      }
-
-      const { data: children, error: playerError } = await supabase
-        .from("parent_managed_players")
-        .select("id,display_name,team_id")
-        .eq("parent_id", auth.user.id)
-        .order("display_name");
-
-      if (playerError) {
-        setMessage(playerError.message);
-        return;
-      }
-
-      const { data: teamData, error: teamError } = await supabase
-        .from("teams")
-        .select("id,name")
-        .eq("active", true);
-
-      if (teamError) {
-        setMessage(teamError.message);
-        return;
-      }
-
-      setPlayers(children || []);
-      setTeams(teamData || []);
-      setSelectedId(children?.[0]?.id || "");
-      setMessage("");
+    if (current.role === 'coach') {
+      const [{ data: people }, { data: managed }, { data: progress }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('active', true).order('display_name'),
+        supabase.from('parent_managed_players').select('id,display_name,team_id'),
+        supabase.from('parent_managed_submissions').select('assignment_id,managed_player_id,status,answers')
+      ])
+      setProfiles((people || []) as Profile[])
+      setManagedPlayers((managed || []) as ManagedPlayer[])
+      setManagedSubmissions((progress || []) as ManagedSubmission[])
     }
-
-    load();
-  }, []);
+    setLoading(false)
+  }, [])
 
   useEffect(() => {
-    async function loadAssignments() {
-      setAssignments([]);
-      setQuestions([]);
-      setSubmissions([]);
-      setDraftAnswers({});
-      setAssignmentMessage("");
-
-      const selected = players.find((player) => player.id === selectedId);
-
-      if (!supabase || !selected) return;
-
-      const { data: assignmentData, error: assignmentError } = await supabase
-        .from("assignments")
-        .select("id,team_id,title,instructions,video_url,due_at")
-        .eq("team_id", selected.team_id)
-        .eq("status", "published")
-        .order("due_at", { ascending: true, nullsFirst: false });
-
-      if (assignmentError) {
-        setAssignmentMessage(`Assignment error: ${assignmentError.message}`);
-        return;
-      }
-      if (assignmentData && assignmentData.length > 0) {
-  const { data: questionData, error: questionError } = await supabase
-    .from("questions")
-    .select("id,assignment_id,position,prompt,required")
-    .in("assignment_id", assignmentData.map((assignment) => assignment.id))
-    .order("position");
-
-  if (questionError) {
-    setAssignmentMessage(`Question error: ${questionError.message}`);
-    return;
-  }
-
-  setQuestions(questionData || []);
-}
-      const { data: submissionData, error: submissionError } = await supabase
-        .from("parent_managed_submissions")
-        .select("assignment_id,status,answers,training_completed")
-        .eq("managed_player_id", selected.id);
-
-      if (submissionError) {
-        setAssignmentMessage(`Progress error: ${submissionError.message}`);
-        return;
-      }
-
-      setAssignments(assignmentData || []);
-      setSubmissions(submissionData || []);
-      setAnswers({});
-      setTrainingCompleted(false);
-    }
-    loadAssignments();
-  }, [players, selectedId]);
-
-  const selected = players.find((player) => player.id === selectedId);
-  const team = teams.find((item) => item.id === selected?.team_id);
-async function saveProgress(assignmentId: string, status: "in_progress" | "completed") {
-
-
-  if (!supabase || !selected) return;
-const assignmentAnswers = draftAnswers[assignmentId] ??
-  submissions.find((item) => item.assignment_id === assignmentId)?.answers ??
-  {};
-  setAssignmentMessage("Saving progress...");
-
-  const { data, error } = await supabase
-
-    .from("parent_managed_submissions")
-
-    .update({
-
-      status,
-
-      answers: assignmentAnswers,
-
-      training_completed: trainingCompleted,
-
+    if (!supabase) { setLoading(false); return }
+    supabase.auth.getSession().then(({data}) => {
+      setSession(data.session)
+      if (data.session) loadData(data.session.user.id); else setLoading(false)
     })
+    const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('recovery')
+        setSession(next)
+        setLoading(false)
+        return
+      }
+      setSession(next)
+      if (next) setTimeout(() => loadData(next.user.id), 0)
+      else { setProfile(null); setTeams([]); setAssignments([]); setManagedPlayers([]); setManagedSubmissions([]); setLoading(false) }
+    })
+    return () => listener.subscription.unsubscribe()
+  }, [loadData])
 
-    .eq("assignment_id", assignmentId)
-
-    .eq("managed_player_id", selected.id)
-.select("assignment_id");
-if (!error && (!data || data.length === 0)) {
-  setMessage("Save failed: No submission record was updated.");
-  return;
-}
-  if (error) {
-
-    setAssignmentMessage(`Save failed: ${error.message}`);
-
-    return;
-
+  const openAssignment = async (id: string) => {
+    if (!supabase) return
+    setSelectedAssignment(id)
+    const [{data:q},{data:t}] = await Promise.all([
+      supabase.from('questions').select('*').eq('assignment_id', id).order('position'),
+      supabase.from('training_tasks').select('*').eq('assignment_id', id).order('position')
+    ])
+    setQuestions((q || []) as Question[]); setTasks((t || []) as Task[])
   }
 
-  setSubmissions((previous) => [
+  if (!supabaseConfigured) return <SetupScreen />
+  if (loading) return <div className="center"><div className="spinner"/><p>Loading FirstTouchIQ…</p></div>
+  if (authMode === 'recovery') return <PasswordResetScreen onComplete={() => { setAuthMode('signin'); setMessage('Password updated. Sign in with your new password.'); supabase?.auth.signOut() }} />
+  if (!session) return <AuthScreen mode={authMode} setMode={setAuthMode} message={message} setMessage={setMessage} />
+  if (!profile) return <ProfileMissing email={session.user.email || ''} onRetry={() => loadData(session.user.id)} />
 
-  ...previous.filter((item) => item.assignment_id !== assignmentId),
+  if (profile.role === 'parent') return <div className="center"><div className="spinner"/><p>Opening parent dashboard…</p></div>
+  const isCoach = profile.role === 'coach'
+  const playerCount = profiles.filter(p => p.role === 'player').length + managedPlayers.length
+  const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted').length
 
-  {
-
-    assignment_id: assignmentId,
-
-    status,
-
-    answers: assignmentAnswers,
-
-    training_completed: trainingCompleted,
-
-  },
-
-]);
-setAssignmentMessage("Progress saved.");
-}
-  
-  return (
-    <main style={{ maxWidth: 700, margin: "40px auto", padding: 20 }}>
-      <h1>Parent Dashboard</h1>
-      <button onClick={signOut}>Sign out</button>
-      <p>Manage your children's FirstTouchIQ profiles.</p>
-
-      {message && <p role="status">{message}</p>}
-
-      {players.length > 0 ? (
-        <>
-          <label htmlFor="child">Select player</label>
-
-          <select
-            id="child"
-            value={selectedId}
-            onChange={(event) => setSelectedId(event.target.value)}
-            style={{ display: "block", margin: "12px 0", padding: 10 }}
-          >
-            {players.map((player) => (
-              <option key={player.id} value={player.id}>
-                {player.display_name}
-              </option>
-            ))}
-          </select>
-
-          {selected && (
-            <section style={{ border: "1px solid #888", padding: 20 }}>
-              <h2>{selected.display_name}</h2>
-              <p>Team: {team?.name || "Team unavailable"}</p>
-
-              <h3>Assignments</h3>
-
-              {assignmentMessage && (
-                <p role="status">{assignmentMessage}</p>
-              )}
-
-              {!assignmentMessage && assignments.length === 0 && (
-                <p>No published assignments yet.</p>
-              )}
-
-              {assignments.map((assignment) => {
-                const submission = submissions.find(
-                  (item) => item.assignment_id === assignment.id
-                );
-
-                return (
-                  <article
-                    key={assignment.id}
-                    style={{
-                      border: "1px solid #888",
-                      padding: 15,
-                      marginBottom: 15,
-                    }}
-                  >
-                    <h4>{assignment.title}</h4>
-
-                    {assignment.instructions && (
-                      <p>{assignment.instructions}</p>
-                    )}
-
-                    {assignment.due_at && (
-                      <p>
-                        Due:{" "}
-                        {new Date(assignment.due_at).toLocaleString()}
-                      </p>
-                    )}
-
-                    {assignment.video_url && (
-                      <p>
-                        <a
-                          href={assignment.video_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Watch training video
-                        </a>
-                      </p>
-                    )}
-{questions
-  .filter((question) => question.assignment_id === assignment.id)
-  .map((question) => (
-    <div key={question.id} style={{ marginBottom: 15 }}>
-      <label htmlFor={`answer-${assignment.id}-${question.id}`}>
-        {question.prompt}
-      </label>
-      <textarea
-        id={`answer-${assignment.id}-${question.id}`}
-        value={
-          draftAnswers[assignment.id]?.[question.id] ??
-          submission?.answers?.[question.id] ??
-          ""
-        }
-        onChange={(event) =>
-          setDraftAnswers((previous) => ({
-            ...previous,
-            [assignment.id]: {
-              ...(previous[assignment.id] ??
-                submission?.answers ??
-                {}),
-              [question.id]: event.target.value,
-            },
-          }))
-        }
-        rows={3}
-        style={{ display: "block", width: "100%", marginTop: 6 }}
-      />
-    </div>
-  ))}
-                    <p>
-                      Status:{" "}
-                      {submission?.status
-                        ? submission.status.replace(/_/g, " ")
-                        : "Not started"}
-                    </p>
-              <button type="button" onClick={() => saveProgress(assignment.id, "in_progress")}>
-
-  Save progress
-
-</button> 
-                  <button
-
-  type="button"
-
-  onClick={() => saveProgress(assignment.id, "completed")}
-
->
-
-  Mark Complete
-
-</button>
-                  </article>
-                );
-              })}
-            </section>
-          )}
-        </>
-      ) : (
-        !message && <p>No approved players yet.</p>
-      )}
-
-      <p>
-        <a href="/parent/request">Register another player</a>
-      </p>
-
-      <p>
-        <a href="/">Back to FirstTouchIQ</a>
-      </p>
+  return <>
+    <header className="topbar">
+      <div><div className="brand">FirstTouch<span>IQ</span></div><div className="tag">Watch. Think. Train. Develop.</div></div>
+      <div className="userbox"><div><strong>{profile.display_name}</strong><small>{isCoach ? 'Coach' : 'Player'}</small></div><button className="ghost" onClick={() => supabase?.auth.signOut()}>Sign out</button></div>
+    </header>
+    <main className="wrap">
+      {message && <div className="notice">{message}</div>}
+      {isCoach ? <>
+        <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/approvals">Player requests</a></nav>
+        {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} tasks={tasks} />}
+        {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
+        {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} />}
+      </> : <PlayerDashboard profile={profile} assignments={assignments.filter(a=>a.status==='published')} submissions={submissions} onRefresh={()=>loadData(profile.id)} setMessage={setMessage} />}
     </main>
-  );
+  </>
 }
 
+function SetupScreen(){ return <div className="authShell"><div className="authCard"><Logo/><h1>One setup step remains</h1><p>Add <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> to the Vercel project environment, then redeploy.</p></div></div> }
+
+function Logo(){ return <div><div className="brand dark">FirstTouch<span>IQ</span></div><div className="tag darkTag">Watch. Think. Train. Develop.</div></div> }
+
+function AuthScreen({mode,setMode,message,setMessage}:{mode:'signin'|'signup'|'forgot';setMode:(m:'signin'|'signup'|'forgot')=>void;message:string;setMessage:(m:string)=>void}){
+  const [busy,setBusy]=useState(false)
+  async function submit(e:FormEvent<HTMLFormElement>){
+    e.preventDefault(); if(!supabase) return; setBusy(true); setMessage('')
+    const fd=new FormData(e.currentTarget); const email=String(fd.get('email')||''); const password=String(fd.get('password')||'')
+    if(mode==='forgot'){
+      const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin})
+      setMessage(error ? error.message : 'If this address has an account, check your email for a password reset link.')
+    } else if(mode==='signin'){
+      const {error}=await supabase.auth.signInWithPassword({email,password}); if(error)setMessage(error.message)
+    } else {
+      const display_name=String(fd.get('name')||''); const role=String(fd.get('role')||'player')
+      const {error}=await supabase.auth.signUp({email,password,options:{data:{display_name,role}}});
+      if(error)setMessage(error.message); else setMessage('Account created. If email confirmation is enabled, check your email, then sign in.')
+    }
+    setBusy(false)
+  }
+  return <div className="authShell"><div className="authCard"><Logo/><h1>{mode==='signin'?'Welcome back':mode==='forgot'?'Reset your password':'Create your account'}</h1><p className="muted">{mode==='signin'?'Sign in to your FirstTouchIQ dashboard.':mode==='forgot'?'Enter your account email and we will send a reset link.':'Coaches manage teams and assignments. Players complete assigned work.'}</p>{message&&<div className="notice">{message}</div>}<form className="form" onSubmit={submit}>{mode==='signup'&&<><label>Full name<input name="name" required placeholder="Your name"/></label><label>Account type<select name="role" defaultValue="player"><option value="player">Player</option><option value="coach">Coach</option></select></label></>}<label>Email<input name="email" type="email" required autoComplete="email"/></label>{mode!=='forgot'&&<label>Password<input name="password" type="password" minLength={6} required autoComplete={mode==='signin'?'current-password':'new-password'}/></label>}<button className="primary" disabled={busy}>{busy?'Please wait…':mode==='signin'?'Sign in':mode==='forgot'?'Send reset link':'Create account'}</button></form>{mode==='signin'&&<button className="linkButton" onClick={()=>{setMode('forgot');setMessage('')}}>Forgot password?</button>}<button className="linkButton" onClick={()=>{if(mode==='signin') window.location.assign('/parent'); else {setMode('signin');setMessage('')}}}>{mode==='signin'?'Need an account? Register as a parent':'Back to sign in'}</button></div></div>
+}
+
+function PasswordResetScreen({onComplete}:{onComplete:()=>void}){
+  const [busy,setBusy]=useState(false)
+  const [error,setError]=useState('')
+  async function submit(e:FormEvent<HTMLFormElement>){
+    e.preventDefault(); if(!supabase) return
+    const fd=new FormData(e.currentTarget)
+    const password=String(fd.get('password')||'')
+    const confirm=String(fd.get('confirm')||'')
+    if(password!==confirm){setError('Passwords do not match.');return}
+    setBusy(true);setError('')
+    const {error:resetError}=await supabase.auth.updateUser({password})
+    setBusy(false)
+    if(resetError)setError(resetError.message);else onComplete()
+  }
+  return <div className="authShell"><div className="authCard"><Logo/><h1>Choose a new password</h1><p className="muted">Use at least 12 characters.</p>{error&&<div className="notice">{error}</div>}<form className="form" onSubmit={submit}><label>New password<input name="password" type="password" minLength={12} required autoComplete="new-password"/></label><label>Confirm password<input name="confirm" type="password" minLength={12} required autoComplete="new-password"/></label><button className="primary" disabled={busy}>{busy?'Updating…':'Update password'}</button></form></div></div>
+}
+
+function ProfileMissing({email,onRetry}:{email:string;onRetry:()=>void}){ return <div className="authShell"><div className="authCard"><Logo/><h1>Finishing account setup</h1><p>Your login for <strong>{email}</strong> exists, but the FirstTouchIQ profile has not appeared yet.</p><button className="primary" onClick={onRetry}>Try again</button><p className="muted small">If this continues, the Supabase new-user profile trigger needs to be checked.</p></div></div> }
+
+function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSubmissions,playerCount,submittedCount,onOpen,selected,questions,tasks}:{teams:Team[];assignments:Assignment[];submissions:Submission[];managedPlayers:ManagedPlayer[];managedSubmissions:ManagedSubmission[];playerCount:number;submittedCount:number;onOpen:(id:string)=>void;selected:string|null;questions:Question[];tasks:Task[]}){
+  const completed = managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted')
+  return <>
+    <div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount}/></div>
+    <section className="card section">
+      <div className="sectionHead"><div><h2>Assignments</h2><p className="muted">Track what your players are working on.</p></div></div>
+      {assignments.length===0?<Empty text="No assignments yet. Create your first Watch → Think → Train assignment."/>:assignments.map(a=>{
+        const team=teams.find(t=>t.id===a.team_id)
+        const direct=submissions.filter(s=>s.assignment_id===a.id)
+        const managed=managedSubmissions.filter(s=>s.assignment_id===a.id)
+        const total=direct.length+managed.length
+        const done=direct.filter(s=>['submitted','reviewed'].includes(s.status)).length+managed.filter(s=>['completed','submitted'].includes(s.status)).length
+        return <div className="assignmentRow" key={a.id}><div className="grow"><div className="eyebrow">{team?.name||'Team'} · {a.status}</div><h3>{a.title}</h3><div className="muted">Due {fmtDue(a.due_at)} · {done} submitted</div><div className="progress"><i style={{width:`${total?Math.round(done/total*100):0}%`}}/></div></div><button className="secondary" onClick={()=>onOpen(a.id)}>{selected===a.id?'Refresh':'View'}</button></div>
+      })}
+    </section>
+    {completed.length>0&&<section className="card section"><h2>Parent player submissions</h2>{completed.map(s=>{
+      const player=managedPlayers.find(p=>p.id===s.managed_player_id)
+      const assignment=assignments.find(a=>a.id===s.assignment_id)
+      return <div className="assignmentRow" key={`${s.managed_player_id}-${s.assignment_id}`}><div><strong>{player?.display_name||'Player'}</strong><div className="muted">{assignment?.title||'Assignment'} · completed</div>{Object.values(s.answers||{}).map((answer,i)=><div className="contentLine" key={i}>Answer {i+1}: {answer}</div>)}</div></div>
+    })}</section>}
+    {selected&&<section className="card section"><h2>Assignment content</h2>{questions.map((q,i)=><div className="contentLine" key={q.id}><b>Question {i+1}</b><span>{q.prompt}</span></div>)}{tasks.map((t,i)=><div className="contentLine" key={t.id}><b>Training {i+1}</b><span>{t.description}</span></div>)}</section>}
+  </>
+}
+function Metric({label,value}:{label:string;value:number}){return <div className="card metric"><span className="muted">{label}</span><b>{value}</b></div>}
+function Empty({text}:{text:string}){return <div className="empty">{text}</div>}
+
+function CreateAssignment({userId,teams,onCreated,setMessage}:{userId:string;teams:Team[];onCreated:()=>void;setMessage:(m:string)=>void}){
+ const [busy,setBusy]=useState(false)
+ async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!supabase)return;setBusy(true);setMessage('');const fd=new FormData(e.currentTarget);const teamId=String(fd.get('team_id')||'');if(!teamId){setMessage('Create a team before publishing an assignment.');setBusy(false);return}const due=String(fd.get('due_at')||'');const {data:a,error}=await supabase.from('assignments').insert({team_id:teamId,created_by:userId,title:String(fd.get('title')),instructions:String(fd.get('instructions')||''),video_url:String(fd.get('video_url')||''),due_at:due?new Date(due).toISOString():null,status:'published',published_at:new Date().toISOString()}).select().single();if(error||!a){setMessage(error?.message||'Could not create assignment.');setBusy(false);return}const qs=[String(fd.get('q1')||''),String(fd.get('q2')||'')].filter(Boolean);if(qs.length){const {error:qErr}=await supabase.from('questions').insert(qs.map((prompt,i)=>({assignment_id:a.id,position:i,prompt,type:'short_answer',required:true})));if(qErr)setMessage(qErr.message)}const task=String(fd.get('task')||'');if(task){const {error:tErr}=await supabase.from('training_tasks').insert({assignment_id:a.id,position:0,description:task,required:true});if(tErr)setMessage(tErr.message)}setBusy(false);onCreated()}
+ return <section className="card"><h2>Create Assignment</h2><p className="muted">Build a Watch → Think → Train activity for one team.</p>{teams.length===0&&<TeamCreator userId={userId} onCreated={onCreated} setMessage={setMessage}/>}<form className="form twoCol" onSubmit={submit}><label className="full">Title<input name="title" required placeholder="Scanning Before Receiving"/></label><label>Team<select name="team_id" required defaultValue=""><option value="" disabled>Select team</option>{teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><label>Due date & time<input name="due_at" type="datetime-local"/></label><label className="full">Coach video link<input name="video_url" type="url" placeholder="YouTube or Vimeo URL"/></label><label className="full">Instructions<textarea name="instructions" placeholder="Watch the video, answer the questions, then complete the training task."/></label><label className="full">Question 1<input name="q1" placeholder="What should you do before receiving the ball?"/></label><label className="full">Question 2<input name="q2" placeholder="What information are you looking for when you scan?"/></label><label className="full">Training task<textarea name="task" placeholder="100 wall passes — 50 right foot / 50 left foot."/></label><button className="primary full" disabled={busy||teams.length===0}>{busy?'Publishing…':'Publish Assignment'}</button></form></section>
+}
+function TeamCreator({userId,onCreated,setMessage}:{userId:string;onCreated:()=>void;setMessage:(m:string)=>void}){const [name,setName]=useState('');async function add(){if(!supabase||!name.trim())return;const {error}=await supabase.from('teams').insert({name:name.trim(),created_by:userId});if(error)setMessage(error.message);else onCreated()}return <div className="callout"><b>No teams yet</b><p>Create your first team before publishing assignments.</p><div className="inline"><input value={name} onChange={e=>setName(e.target.value)} placeholder="12U Girls"/><button className="secondary" type="button" onClick={add}>Create team</button></div></div>}
+
+function Players({teams,profiles,submissions}:{teams:Team[];profiles:Profile[];submissions:Submission[]}){const players=profiles.filter(p=>p.role==='player');return <section className="card"><h2>Players</h2><p className="muted">Player accounts appear here after they create an account.</p>{players.length===0?<Empty text="No player accounts yet."/>:players.map(p=><div className="playerRow" key={p.id}><div className="avatar">{p.display_name.slice(0,1).toUpperCase()}</div><div className="grow"><b>{p.display_name}</b><div className="muted">{p.username||'Player'}</div></div><span className="pill">{submissions.filter(s=>s.player_id===p.id&&['submitted','reviewed'].includes(s.status)).length} submitted</span></div>)}{teams.length>0&&<p className="muted small">Team membership is managed in the database-backed roster; assignment access follows team membership.</p>}</section>}
+
+function PlayerDashboard({profile,assignments,submissions,onRefresh,setMessage}:{profile:Profile;assignments:Assignment[];submissions:Submission[];onRefresh:()=>void;setMessage:(m:string)=>void}){
+ const [open,setOpen]=useState<Assignment|null>(null);const [qs,setQs]=useState<Question[]>([]);const [ts,setTs]=useState<Task[]>([]);const [answers,setAnswers]=useState<Record<string,string>>({});const [done,setDone]=useState<Record<string,boolean>>({});const [busy,setBusy]=useState(false)
+ async function openA(a:Assignment){if(!supabase)return;setOpen(a);const [{data:q},{data:t}]=await Promise.all([supabase.from('questions').select('*').eq('assignment_id',a.id).order('position'),supabase.from('training_tasks').select('*').eq('assignment_id',a.id).order('position')]);setQs((q||[]) as Question[]);setTs((t||[]) as Task[])}
+ async function submit(){if(!supabase||!open)return;setBusy(true);let sub=submissions.find(s=>s.assignment_id===open.id&&s.player_id===profile.id);if(!sub){const {data,error}=await supabase.from('submissions').insert({assignment_id:open.id,player_id:profile.id,status:'in_progress',started_at:new Date().toISOString()}).select().single();if(error||!data){setMessage(error?.message||'Could not start submission.');setBusy(false);return}sub=data as Submission}for(const q of qs){await supabase.from('answers').delete().eq('submission_id',sub.id).eq('question_id',q.id);await supabase.from('answers').insert({submission_id:sub.id,question_id:q.id,answer_text:answers[q.id]||''})}for(const t of ts){await supabase.from('task_completions').upsert({submission_id:sub.id,task_id:t.id,completed:Boolean(done[t.id])})}const {error}=await supabase.from('submissions').update({status:'submitted',submitted_at:new Date().toISOString()}).eq('id',sub.id);if(error)setMessage(error.message);else{setMessage('Assignment submitted. Nice work!');setOpen(null);onRefresh()}setBusy(false)}
+ if(open)return <section className="card playerAssignment"><button className="linkButton left" onClick={()=>setOpen(null)}>← Back to assignments</button><div className="eyebrow">WATCH · THINK · TRAIN · SUBMIT</div><h1>{open.title}</h1><p>{open.instructions}</p>{open.video_url&&<a className="video" href={open.video_url} target="_blank" rel="noreferrer">▶ Open Coach Video</a>}<div className="steps"><span>1 WATCH</span><span>2 THINK</span><span>3 TRAIN</span><span>4 SUBMIT</span></div>{qs.map((q,i)=><label className="question" key={q.id}><b>Question {i+1}</b><span>{q.prompt}</span><textarea value={answers[q.id]||''} onChange={e=>setAnswers({...answers,[q.id]:e.target.value})}/></label>)}{ts.map(t=><label className="task" key={t.id}><input type="checkbox" checked={Boolean(done[t.id])} onChange={e=>setDone({...done,[t.id]:e.target.checked})}/><span><b>Training Task</b><br/>{t.description}</span></label>)}<button className="primary" onClick={submit} disabled={busy}>{busy?'Submitting…':'Submit Assignment'}</button></section>
+ return <><div className="welcome"><div className="eyebrow">PLAYER DASHBOARD</div><h1>Welcome, {profile.display_name}</h1><p className="muted">Watch. Think. Train. Develop.</p></div><section className="card"><h2>Your assignments</h2>{assignments.length===0?<Empty text="No published assignments are assigned to your team yet."/>:assignments.map(a=>{const s=submissions.find(x=>x.assignment_id===a.id&&x.player_id===profile.id);return <button className="assignmentButton" key={a.id} onClick={()=>openA(a)}><div><b>{a.title}</b><small>Due {fmtDue(a.due_at)}</small></div><span className={`pill ${s?.status==='submitted'||s?.status==='reviewed'?'success':''}`}>{s?.status?.replace('_',' ')||'Not started'}</span></button>})}</section></>
+}
