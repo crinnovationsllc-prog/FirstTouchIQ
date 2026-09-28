@@ -20,7 +20,7 @@ export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
-  const [authMode, setAuthMode] = useState<'signin'|'signup'>('signin')
+  const [authMode, setAuthMode] = useState<'signin'|'signup'|'forgot'|'recovery'>('signin')
   const [tab, setTab] = useState<Tab>('dashboard')
   const [teams, setTeams] = useState<Team[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
@@ -63,7 +63,13 @@ export default function Home() {
       setSession(data.session)
       if (data.session) loadData(data.session.user.id); else setLoading(false)
     })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('recovery')
+        setSession(next)
+        setLoading(false)
+        return
+      }
       setSession(next)
       if (next) setTimeout(() => loadData(next.user.id), 0)
       else { setProfile(null); setTeams([]); setAssignments([]); setLoading(false) }
@@ -83,6 +89,7 @@ export default function Home() {
 
   if (!supabaseConfigured) return <SetupScreen />
   if (loading) return <div className="center"><div className="spinner"/><p>Loading FirstTouchIQ…</p></div>
+  if (authMode === 'recovery') return <PasswordResetScreen onComplete={() => { setAuthMode('signin'); setMessage('Password updated. Sign in with your new password.'); supabase?.auth.signOut() }} />
   if (!session) return <AuthScreen mode={authMode} setMode={setAuthMode} message={message} setMessage={setMessage} />
   if (!profile) return <ProfileMissing email={session.user.email || ''} onRetry={() => loadData(session.user.id)} />
 
@@ -99,7 +106,7 @@ export default function Home() {
     <main className="wrap">
       {message && <div className="notice">{message}</div>}
       {isCoach ? <>
-        <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button></nav>
+        <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/approvals">Player requests</a></nav>
         {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
         {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} />}
@@ -112,12 +119,15 @@ function SetupScreen(){ return <div className="authShell"><div className="authCa
 
 function Logo(){ return <div><div className="brand dark">FirstTouch<span>IQ</span></div><div className="tag darkTag">Watch. Think. Train. Develop.</div></div> }
 
-function AuthScreen({mode,setMode,message,setMessage}:{mode:'signin'|'signup';setMode:(m:'signin'|'signup')=>void;message:string;setMessage:(m:string)=>void}){
+function AuthScreen({mode,setMode,message,setMessage}:{mode:'signin'|'signup'|'forgot';setMode:(m:'signin'|'signup'|'forgot')=>void;message:string;setMessage:(m:string)=>void}){
   const [busy,setBusy]=useState(false)
   async function submit(e:FormEvent<HTMLFormElement>){
     e.preventDefault(); if(!supabase) return; setBusy(true); setMessage('')
     const fd=new FormData(e.currentTarget); const email=String(fd.get('email')||''); const password=String(fd.get('password')||'')
-    if(mode==='signin'){
+    if(mode==='forgot'){
+      const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin})
+      setMessage(error ? error.message : 'If this address has an account, check your email for a password reset link.')
+    } else if(mode==='signin'){
       const {error}=await supabase.auth.signInWithPassword({email,password}); if(error)setMessage(error.message)
     } else {
       const display_name=String(fd.get('name')||''); const role=String(fd.get('role')||'player')
@@ -126,7 +136,24 @@ function AuthScreen({mode,setMode,message,setMessage}:{mode:'signin'|'signup';se
     }
     setBusy(false)
   }
-  return <div className="authShell"><div className="authCard"><Logo/><h1>{mode==='signin'?'Welcome back':'Create your account'}</h1><p className="muted">{mode==='signin'?'Sign in to your FirstTouchIQ dashboard.':'Coaches manage teams and assignments. Players complete assigned work.'}</p>{message&&<div className="notice">{message}</div>}<form className="form" onSubmit={submit}>{mode==='signup'&&<><label>Full name<input name="name" required placeholder="Your name"/></label><label>Account type<select name="role" defaultValue="player"><option value="player">Player</option><option value="coach">Coach</option></select></label></>}<label>Email<input name="email" type="email" required autoComplete="email"/></label><label>Password<input name="password" type="password" minLength={6} required autoComplete={mode==='signin'?'current-password':'new-password'}/></label><button className="primary" disabled={busy}>{busy?'Please wait…':mode==='signin'?'Sign in':'Create account'}</button></form><button className="linkButton" onClick={()=>{if(mode==='signin') window.location.assign('/parent'); else {setMode('signin');setMessage('')}}}>{mode==='signin'?'Need an account? Register as a parent':'Already have an account? Sign in'}</button></div></div>
+  return <div className="authShell"><div className="authCard"><Logo/><h1>{mode==='signin'?'Welcome back':mode==='forgot'?'Reset your password':'Create your account'}</h1><p className="muted">{mode==='signin'?'Sign in to your FirstTouchIQ dashboard.':mode==='forgot'?'Enter your account email and we will send a reset link.':'Coaches manage teams and assignments. Players complete assigned work.'}</p>{message&&<div className="notice">{message}</div>}<form className="form" onSubmit={submit}>{mode==='signup'&&<><label>Full name<input name="name" required placeholder="Your name"/></label><label>Account type<select name="role" defaultValue="player"><option value="player">Player</option><option value="coach">Coach</option></select></label></>}<label>Email<input name="email" type="email" required autoComplete="email"/></label>{mode!=='forgot'&&<label>Password<input name="password" type="password" minLength={6} required autoComplete={mode==='signin'?'current-password':'new-password'}/></label>}<button className="primary" disabled={busy}>{busy?'Please wait…':mode==='signin'?'Sign in':mode==='forgot'?'Send reset link':'Create account'}</button></form>{mode==='signin'&&<button className="linkButton" onClick={()=>{setMode('forgot');setMessage('')}}>Forgot password?</button>}<button className="linkButton" onClick={()=>{if(mode==='signin') window.location.assign('/parent'); else {setMode('signin');setMessage('')}}}>{mode==='signin'?'Need an account? Register as a parent':'Back to sign in'}</button></div></div>
+}
+
+function PasswordResetScreen({onComplete}:{onComplete:()=>void}){
+  const [busy,setBusy]=useState(false)
+  const [error,setError]=useState('')
+  async function submit(e:FormEvent<HTMLFormElement>){
+    e.preventDefault(); if(!supabase) return
+    const fd=new FormData(e.currentTarget)
+    const password=String(fd.get('password')||'')
+    const confirm=String(fd.get('confirm')||'')
+    if(password!==confirm){setError('Passwords do not match.');return}
+    setBusy(true);setError('')
+    const {error:resetError}=await supabase.auth.updateUser({password})
+    setBusy(false)
+    if(resetError)setError(resetError.message);else onComplete()
+  }
+  return <div className="authShell"><div className="authCard"><Logo/><h1>Choose a new password</h1><p className="muted">Use at least 12 characters.</p>{error&&<div className="notice">{error}</div>}<form className="form" onSubmit={submit}><label>New password<input name="password" type="password" minLength={12} required autoComplete="new-password"/></label><label>Confirm password<input name="confirm" type="password" minLength={12} required autoComplete="new-password"/></label><button className="primary" disabled={busy}>{busy?'Updating…':'Update password'}</button></form></div></div>
 }
 
 function ProfileMissing({email,onRetry}:{email:string;onRetry:()=>void}){ return <div className="authShell"><div className="authCard"><Logo/><h1>Finishing account setup</h1><p>Your login for <strong>{email}</strong> exists, but the FirstTouchIQ profile has not appeared yet.</p><button className="primary" onClick={onRetry}>Try again</button><p className="muted small">If this continues, the Supabase new-user profile trigger needs to be checked.</p></div></div> }
