@@ -99,7 +99,7 @@ export default function Home() {
 
   if (!supabaseConfigured) return <SetupScreen />
   if (loading) return <div className="center"><div className="spinner"/><p>Loading FirstTouchIQ…</p></div>
-  if (authMode === 'recovery') return <PasswordResetScreen onComplete={() => { setAuthMode('signin'); setMessage('Password updated. Sign in with your new password.'); supabase?.auth.signOut() }} />
+  if (authMode === 'recovery') return <PasswordResetScreen onComplete={() => { setAuthMode('signin'); setMessage('Password updated successfully.'); if (session) loadData(session.user.id) }} />
   if (!session) return <AuthScreen mode={authMode} setMode={setAuthMode} message={message} setMessage={setMessage} />
   if (!profile) return <ProfileMissing email={session.user.email || ''} onRetry={() => loadData(session.user.id)} />
 
