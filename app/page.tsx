@@ -8,6 +8,8 @@ type Profile = { id: string; role: 'coach' | 'player' | 'parent'; display_name: 
 type Team = { id: string; name: string; created_by: string; active: boolean }
 type Assignment = { id: string; team_id: string; created_by: string; title: string; instructions: string | null; video_url: string | null; due_at: string | null; status: 'draft' | 'published' | 'archived'; created_at: string }
 type Submission = { id: string; assignment_id: string; player_id: string; status: 'not_started' | 'in_progress' | 'submitted' | 'reviewed'; submitted_at: string | null }
+type ManagedPlayer = { id: string; display_name: string; team_id: string }
+type ManagedSubmission = { assignment_id: string; managed_player_id: string; status: string; answers: Record<string,string> | null }
 type Question = { id: string; assignment_id: string; position: number; prompt: string; type: string; required: boolean }
 type Task = { id: string; assignment_id: string; position: number; description: string; required: boolean }
 
@@ -25,6 +27,8 @@ export default function Home() {
   const [teams, setTeams] = useState<Team[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [managedPlayers, setManagedPlayers] = useState<ManagedPlayer[]>([])
+  const [managedSubmissions, setManagedSubmissions] = useState<ManagedSubmission[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
@@ -51,8 +55,14 @@ export default function Home() {
     setSubmissions((s || []) as Submission[])
 
     if (current.role === 'coach') {
-      const { data: people } = await supabase.from('profiles').select('*').eq('active', true).order('display_name')
+      const [{ data: people }, { data: managed }, { data: progress }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('active', true).order('display_name'),
+        supabase.from('parent_managed_players').select('id,display_name,team_id'),
+        supabase.from('parent_managed_submissions').select('assignment_id,managed_player_id,status,answers')
+      ])
       setProfiles((people || []) as Profile[])
+      setManagedPlayers((managed || []) as ManagedPlayer[])
+      setManagedSubmissions((progress || []) as ManagedSubmission[])
     }
     setLoading(false)
   }, [])
@@ -72,7 +82,7 @@ export default function Home() {
       }
       setSession(next)
       if (next) setTimeout(() => loadData(next.user.id), 0)
-      else { setProfile(null); setTeams([]); setAssignments([]); setLoading(false) }
+      else { setProfile(null); setTeams([]); setAssignments([]); setManagedPlayers([]); setManagedSubmissions([]); setLoading(false) }
     })
     return () => listener.subscription.unsubscribe()
   }, [loadData])
@@ -95,8 +105,8 @@ export default function Home() {
 
   if (profile.role === 'parent') return <div className="center"><div className="spinner"/><p>Opening parent dashboard…</p></div>
   const isCoach = profile.role === 'coach'
-  const playerCount = profiles.filter(p => p.role === 'player').length
-  const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length
+  const playerCount = profiles.filter(p => p.role === 'player').length + managedPlayers.length
+  const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted').length
 
   return <>
     <header className="topbar">
@@ -107,7 +117,7 @@ export default function Home() {
       {message && <div className="notice">{message}</div>}
       {isCoach ? <>
         <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/approvals">Player requests</a></nav>
-        {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} tasks={tasks} />}
+        {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
         {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} />}
       </> : <PlayerDashboard profile={profile} assignments={assignments.filter(a=>a.status==='published')} submissions={submissions} onRefresh={()=>loadData(profile.id)} setMessage={setMessage} />}
@@ -158,8 +168,28 @@ function PasswordResetScreen({onComplete}:{onComplete:()=>void}){
 
 function ProfileMissing({email,onRetry}:{email:string;onRetry:()=>void}){ return <div className="authShell"><div className="authCard"><Logo/><h1>Finishing account setup</h1><p>Your login for <strong>{email}</strong> exists, but the FirstTouchIQ profile has not appeared yet.</p><button className="primary" onClick={onRetry}>Try again</button><p className="muted small">If this continues, the Supabase new-user profile trigger needs to be checked.</p></div></div> }
 
-function CoachDashboard({teams,assignments,submissions,playerCount,submittedCount,onOpen,selected,questions,tasks}:{teams:Team[];assignments:Assignment[];submissions:Submission[];playerCount:number;submittedCount:number;onOpen:(id:string)=>void;selected:string|null;questions:Question[];tasks:Task[]}){
- return <><div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount}/></div><section className="card section"><div className="sectionHead"><div><h2>Assignments</h2><p className="muted">Track what your players are working on.</p></div></div>{assignments.length===0?<Empty text="No assignments yet. Create your first Watch → Think → Train assignment."/>:assignments.map(a=>{const team=teams.find(t=>t.id===a.team_id);const subs=submissions.filter(s=>s.assignment_id===a.id);const done=subs.filter(s=>['submitted','reviewed'].includes(s.status)).length;return <div className="assignmentRow" key={a.id}><div className="grow"><div className="eyebrow">{team?.name||'Team'} · {a.status}</div><h3>{a.title}</h3><div className="muted">Due {fmtDue(a.due_at)} · {done} submitted</div><div className="progress"><i style={{width:`${subs.length?Math.round(done/subs.length*100):0}%`}}/></div></div><button className="secondary" onClick={()=>onOpen(a.id)}>{selected===a.id?'Refresh':'View'}</button></div>})}</section>{selected&&<section className="card section"><h2>Assignment content</h2>{questions.map((q,i)=><div className="contentLine" key={q.id}><b>Question {i+1}</b><span>{q.prompt}</span></div>)}{tasks.map((t,i)=><div className="contentLine" key={t.id}><b>Training {i+1}</b><span>{t.description}</span></div>)}</section>}</>
+function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSubmissions,playerCount,submittedCount,onOpen,selected,questions,tasks}:{teams:Team[];assignments:Assignment[];submissions:Submission[];managedPlayers:ManagedPlayer[];managedSubmissions:ManagedSubmission[];playerCount:number;submittedCount:number;onOpen:(id:string)=>void;selected:string|null;questions:Question[];tasks:Task[]}){
+  const completed = managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted')
+  return <>
+    <div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount}/></div>
+    <section className="card section">
+      <div className="sectionHead"><div><h2>Assignments</h2><p className="muted">Track what your players are working on.</p></div></div>
+      {assignments.length===0?<Empty text="No assignments yet. Create your first Watch → Think → Train assignment."/>:assignments.map(a=>{
+        const team=teams.find(t=>t.id===a.team_id)
+        const direct=submissions.filter(s=>s.assignment_id===a.id)
+        const managed=managedSubmissions.filter(s=>s.assignment_id===a.id)
+        const total=direct.length+managed.length
+        const done=direct.filter(s=>['submitted','reviewed'].includes(s.status)).length+managed.filter(s=>['completed','submitted'].includes(s.status)).length
+        return <div className="assignmentRow" key={a.id}><div className="grow"><div className="eyebrow">{team?.name||'Team'} · {a.status}</div><h3>{a.title}</h3><div className="muted">Due {fmtDue(a.due_at)} · {done} submitted</div><div className="progress"><i style={{width:`${total?Math.round(done/total*100):0}%`}}/></div></div><button className="secondary" onClick={()=>onOpen(a.id)}>{selected===a.id?'Refresh':'View'}</button></div>
+      })}
+    </section>
+    {completed.length>0&&<section className="card section"><h2>Parent player submissions</h2>{completed.map(s=>{
+      const player=managedPlayers.find(p=>p.id===s.managed_player_id)
+      const assignment=assignments.find(a=>a.id===s.assignment_id)
+      return <div className="assignmentRow" key={`${s.managed_player_id}-${s.assignment_id}`}><div><strong>{player?.display_name||'Player'}</strong><div className="muted">{assignment?.title||'Assignment'} · completed</div>{Object.values(s.answers||{}).map((answer,i)=><div className="contentLine" key={i}>Answer {i+1}: {answer}</div>)}</div></div>
+    })}</section>}
+    {selected&&<section className="card section"><h2>Assignment content</h2>{questions.map((q,i)=><div className="contentLine" key={q.id}><b>Question {i+1}</b><span>{q.prompt}</span></div>)}{tasks.map((t,i)=><div className="contentLine" key={t.id}><b>Training {i+1}</b><span>{t.description}</span></div>)}</section>}
+  </>
 }
 function Metric({label,value}:{label:string;value:number}){return <div className="card metric"><span className="muted">{label}</span><b>{value}</b></div>}
 function Empty({text}:{text:string}){return <div className="empty">{text}</div>}
