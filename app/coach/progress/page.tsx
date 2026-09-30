@@ -43,6 +43,7 @@ type Submission = {
   status: string;
 
   training_completed: boolean;
+  answers: Record<string, string> | null;
 
 };
 
@@ -172,7 +173,7 @@ export default function CoachProgress() {
 
           .select(
 
-            "assignment_id,managed_player_id,status,training_completed"
+            "assignment_id,managed_player_id,status,training_completed,answers"
 
           );
 
@@ -311,6 +312,16 @@ export default function CoachProgress() {
                             : "Not started"}
 
                         </p>
+                        {submission?.answers && (
+  <div>
+    <p><strong>Player Answers:</strong></p>
+    {Object.entries(submission.answers).map(([questionId, answer]) => (
+      <p key={questionId}>
+        {answer}
+      </p>
+    ))}
+  </div>
+)}
 
                       </div>
 
