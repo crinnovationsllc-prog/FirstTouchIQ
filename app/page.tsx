@@ -186,7 +186,13 @@ function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSub
     {completed.length>0&&<section className="card section"><h2>Parent player submissions</h2>{completed.map(s=>{
       const player=managedPlayers.find(p=>p.id===s.managed_player_id)
       const assignment=assignments.find(a=>a.id===s.assignment_id)
-      return <div className="assignmentRow" key={`${s.managed_player_id}-${s.assignment_id}`}><div><strong>{player?.display_name||'Player'}</strong><div className="muted">{assignment?.title||'Assignment'} · completed</div>{Object.values(s.answers||{}).map((answer,i)=><div className="contentLine" key={i}>Answer {i+1}: {answer}</div>)}</div></div>
+      return <div className="assignmentRow" key={`${s.managed_player_id}-${s.assignment_id}`}><div><strong>{player?.display_name||'Player'}</strong><div className="muted">{assignment?.title||'Assignment'} · completed</div>{Object.entries(s.answers||{}).map(([questionId,answer])=>{
+  const question=questions.find(q=>q.id===questionId)
+  return <div className="contentLine" key={questionId}>
+    <b>{question?.prompt||'Question'}</b>
+    <span>{answer}</span>
+  </div>
+})}
     })}</section>}
     {selected&&<section className="card section"><h2>Assignment content</h2>{questions.map((q,i)=><div className="contentLine" key={q.id}><b>Question {i+1}</b><span>{q.prompt}</span></div>)}{tasks.map((t,i)=><div className="contentLine" key={t.id}><b>Training {i+1}</b><span>{t.description}</span></div>)}</section>}
   </>
