@@ -196,7 +196,7 @@ function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSub
     <span>{answer}</span>
   </div>
 })}
-    })}</section>}
+   </section>}
     {selected&&<section className="card section"><h2>Assignment content</h2>{questions.map((q,i)=><div className="contentLine" key={q.id}><b>Question {i+1}</b><span>{q.prompt}</span></div>)}{tasks.map((t,i)=><div className="contentLine" key={t.id}><b>Training {i+1}</b><span>{t.description}</span></div>)}</section>}
   </>
 }
