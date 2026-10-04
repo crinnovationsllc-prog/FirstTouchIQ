@@ -29,6 +29,12 @@ type Question = {
   prompt: string;
   required: boolean;
 };
+type Task = {
+  id: string;
+  assignment_id: string;
+  position: number;
+  description: string;
+};
 type Submission = {
 
   assignment_id: string;
@@ -53,6 +59,7 @@ export default function ParentDashboard() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [message, setMessage] = useState("Loading...");
   const [assignmentMessage, setAssignmentMessage] = useState("");
@@ -153,6 +160,18 @@ useEffect(() => {
   }
 
   setQuestions(questionData || []);
+  const { data: taskData, error: taskError } = await supabase
+  .from("assignment_tasks")
+  .select("id,assignment_id,position,description")
+  .in("assignment_id", assignmentData.map((assignment) => assignment.id))
+  .order("position");
+
+if (taskError) {
+  setAssignmentMessage(`Task error: ${taskError.message}`);
+  return;
+}
+
+setTasks(taskData || []);      
 }
       const { data: submissionData, error: submissionError } = await supabase
         .from("parent_managed_submissions")
@@ -350,6 +369,15 @@ setSavingAssignmentId("");
       />
     </div>
   ))}
+{tasks
+  .filter((task) => task.assignment_id === assignment.id)
+  .map((task) => (
+    <div key={task.id} style={{ marginBottom: 15 }}>
+      <strong>Training Task</strong>
+      <p>{task.description}</p>
+    </div>
+  ))}
+                    
                     <p>
                       Status:{" "}
                       {submission?.status
