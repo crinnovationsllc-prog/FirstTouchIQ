@@ -443,9 +443,6 @@ setSavingAssignmentId("");
     + Register another player
   </a>
 
-  <a className="secondary parentAction" href="/">
-    Back to FirstTouchIQ
-  </a>
 </div>
        </main>
   </>
