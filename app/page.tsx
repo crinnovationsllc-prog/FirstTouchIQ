@@ -95,7 +95,7 @@ export default function Home() {
     setSelectedAssignment(id)
     const [{data:q},{data:t}] = await Promise.all([
       supabase.from('questions').select('*').eq('assignment_id', id).order('position'),
-      supabase.from('training_tasks').select('*').eq('assignment_id', id).order('position')
+      supabase.from('assignment_tasks').select('*').eq('assignment_id', id).order('position')
     ])
     setQuestions((q || []) as Question[]); setTasks((t || []) as Task[])
   }
