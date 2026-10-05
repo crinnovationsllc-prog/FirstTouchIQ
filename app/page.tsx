@@ -194,6 +194,7 @@ function PasswordResetScreen({onComplete}:{onComplete:()=>void}){
 function ProfileMissing({email,onRetry}:{email:string;onRetry:()=>void}){ return <div className="authShell"><div className="authCard"><Logo/><h1>Finishing account setup</h1><p>Your login for <strong>{email}</strong> exists, but the FirstTouchIQ profile has not appeared yet.</p><button className="primary" onClick={onRetry}>Try again</button><p className="muted small">If this continues, the Supabase new-user profile trigger needs to be checked.</p></div></div> }
 
 function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSubmissions,markManagedReviewed,playerCount,submittedCount,onOpen,selected,questions,allQuestions,tasks}:{teams:Team[];assignments:Assignment[];submissions:Submission[];managedPlayers:ManagedPlayer[];managedSubmissions:ManagedSubmission[];markManagedReviewed:(submissionId:string)=>void;playerCount:number;submittedCount:number;onOpen:(id:string)=>void;selected:string|null;questions:Question[];allQuestions:Question[];tasks:Task[]}){
+  const reviewedCount = submissions.filter(s => s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'reviewed').length
   const completed = managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted')
   return <>
     <div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount + reviewedCount}/></div>
