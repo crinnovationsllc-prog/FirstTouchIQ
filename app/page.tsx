@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 
@@ -23,6 +23,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [authMode, setAuthMode] = useState<'signin'|'signup'|'forgot'|'recovery'>('signin')
+  const recoveryRef = useRef(false)
   const [tab, setTab] = useState<Tab>('dashboard')
   const [teams, setTeams] = useState<Team[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
@@ -96,17 +97,37 @@ export default function Home() {
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return }
+    const recoveryInUrl =
+  window.location.hash.includes('type=recovery') ||
+  new URLSearchParams(window.location.search).get('type') === 'recovery'
+
+if (recoveryInUrl) {
+  recoveryRef.current = true
+  setAuthMode('recovery')
+}
     supabase.auth.getSession().then(({data}) => {
-      setSession(data.session)
-      if (data.session) loadData(data.session.user.id); else setLoading(false)
-    })
+  setSession(data.session)
+
+  if (recoveryRef.current) {
+    setAuthMode('recovery')
+    setLoading(false)
+    return
+  }
+
+  if (data.session) loadData(data.session.user.id)
+  else setLoading(false)
+})
     const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
       if (event === 'PASSWORD_RECOVERY') {
-        setAuthMode('recovery')
-        setSession(next)
-        setLoading(false)
-        return
-      }
+  recoveryRef.current = true
+}
+
+if (recoveryRef.current) {
+  setAuthMode('recovery')
+  setSession(next)
+  setLoading(false)
+  return
+}
       setSession(next)
       if (next) setTimeout(() => loadData(next.user.id), 0)
       else { setProfile(null); setTeams([]); setAssignments([]); setManagedPlayers([]); setManagedSubmissions([]); setLoading(false) }
@@ -126,7 +147,13 @@ export default function Home() {
 
   if (!supabaseConfigured) return <SetupScreen />
   if (loading) return <div className="center"><div className="spinner"/><p>Loading FirstTouchIQ…</p></div>
-  if (authMode === 'recovery') return <PasswordResetScreen onComplete={() => { setAuthMode('signin'); setMessage('Password updated successfully.'); if (session) loadData(session.user.id) }} />
+  if (authMode === 'recovery') return <PasswordResetScreen onComplete={() => {
+  recoveryRef.current = false
+  window.history.replaceState({}, '', window.location.pathname)
+  setAuthMode('signin')
+  setMessage('Password updated successfully.')
+  if (session) loadData(session.user.id)
+}} />
   if (!session) return <AuthScreen mode={authMode} setMode={setAuthMode} message={message} setMessage={setMessage} />
   if (!profile) return <ProfileMissing email={session.user.email || ''} onRetry={() => loadData(session.user.id)} />
 
