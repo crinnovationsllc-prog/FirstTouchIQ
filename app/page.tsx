@@ -144,7 +144,7 @@ export default function Home() {
         <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/approvals">Player requests</a></nav>
         {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} markManagedReviewed={markManagedReviewed} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} allQuestions={allQuestions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
-        {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} />}
+        {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} />}
       </> : <PlayerDashboard profile={profile} assignments={assignments.filter(a=>a.status==='published')} submissions={submissions} onRefresh={()=>loadData(profile.id)} setMessage={setMessage} />}
     </main>
   </>
@@ -282,7 +282,67 @@ if (taskError) {
 }
 function TeamCreator({userId,onCreated,setMessage}:{userId:string;onCreated:()=>void;setMessage:(m:string)=>void}){const [name,setName]=useState('');async function add(){if(!supabase||!name.trim())return;const {error}=await supabase.from('teams').insert({name:name.trim(),created_by:userId});if(error)setMessage(error.message);else onCreated()}return <div className="callout"><b>No teams yet</b><p>Create your first team before publishing assignments.</p><div className="inline"><input value={name} onChange={e=>setName(e.target.value)} placeholder="12U Girls"/><button className="secondary" type="button" onClick={add}>Create team</button></div></div>}
 
-function Players({teams,profiles,submissions}:{teams:Team[];profiles:Profile[];submissions:Submission[]}){const players=profiles.filter(p=>p.role==='player');return <section className="card"><h2>Players</h2><p className="muted">Player accounts appear here after they create an account.</p>{players.length===0?<Empty text="No player accounts yet."/>:players.map(p=><div className="playerRow" key={p.id}><div className="avatar">{p.display_name.slice(0,1).toUpperCase()}</div><div className="grow"><b>{p.display_name}</b><div className="muted">{p.username||'Player'}</div></div><span className="pill">{submissions.filter(s=>s.player_id===p.id&&['submitted','reviewed'].includes(s.status)).length} submitted</span></div>)}{teams.length>0&&<p className="muted small">Team membership is managed in the database-backed roster; assignment access follows team membership.</p>}</section>}
+function Players({
+  teams,
+  profiles,
+  submissions,
+  managedPlayers,
+}: {
+  teams: Team[];
+  profiles: Profile[];
+  submissions: Submission[];
+  managedPlayers: ManagedPlayer[];
+}) {
+  const players = profiles.filter((p) => p.role === 'player');
+
+  return (
+    <section className="card">
+      <h2>Players</h2>
+
+      {players.map((p) => (
+        <div className="playerRow" key={p.id}>
+          <div className="avatar">
+            {p.display_name.slice(0, 1).toUpperCase()}
+          </div>
+
+          <div className="grow">
+            <b>{p.display_name}</b>
+            <div className="muted">{p.username || 'Player account'}</div>
+          </div>
+
+          <span className="pill">
+            {
+              submissions.filter(
+                (s) =>
+                  s.player_id === p.id &&
+                  ['submitted', 'reviewed'].includes(s.status)
+              ).length
+            } submitted
+          </span>
+        </div>
+      ))}
+
+      {managedPlayers.map((p) => (
+        <div className="playerRow" key={p.id}>
+          <div className="avatar">
+            {p.display_name.slice(0, 1).toUpperCase()}
+          </div>
+
+          <div className="grow">
+            <b>{p.display_name}</b>
+            <div className="muted">
+              {teams.find((t) => t.id === p.team_id)?.name || 'Parent-managed player'}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {players.length === 0 && managedPlayers.length === 0 && (
+        <Empty text="No players yet." />
+      )}
+    </section>
+  );
+}
 
 function PlayerDashboard({profile,assignments,submissions,onRefresh,setMessage}:{profile:Profile;assignments:Assignment[];submissions:Submission[];onRefresh:()=>void;setMessage:(m:string)=>void}){
  const [open,setOpen]=useState<Assignment|null>(null);const [qs,setQs]=useState<Question[]>([]);const [ts,setTs]=useState<Task[]>([]);const [answers,setAnswers]=useState<Record<string,string>>({});const [done,setDone]=useState<Record<string,boolean>>({});const [busy,setBusy]=useState(false)
