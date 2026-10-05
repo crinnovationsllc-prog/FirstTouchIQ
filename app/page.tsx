@@ -223,6 +223,7 @@ function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSub
                 );
               }
             )}
+            <button type="button">TEST BUTTON VISIBLE</button>
           </div>
         </div>
       );
