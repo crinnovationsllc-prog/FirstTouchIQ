@@ -9,7 +9,7 @@ type Team = { id: string; name: string; created_by: string; active: boolean }
 type Assignment = { id: string; team_id: string; created_by: string; title: string; instructions: string | null; video_url: string | null; due_at: string | null; status: 'draft' | 'published' | 'archived'; created_at: string }
 type Submission = { id: string; assignment_id: string; player_id: string; status: 'not_started' | 'in_progress' | 'submitted' | 'reviewed'; submitted_at: string | null }
 type ManagedPlayer = { id: string; display_name: string; team_id: string }
-type ManagedSubmission = { assignment_id: string; managed_player_id: string; status: string; answers: Record<string,string> | null }
+type ManagedSubmission = { id: string; assignment_id: string; managed_player_id: string; status: string; answers: Record<string,string> | null }
 type Question = { id: string; assignment_id: string; position: number; prompt: string; type: string; required: boolean }
 type Task = { id: string; assignment_id: string; position: number; description: string; required: boolean }
 
@@ -141,7 +141,7 @@ export default function Home() {
       {message && <div className="notice">{message}</div>}
       {isCoach ? <>
         <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/approvals">Player requests</a></nav>
-        {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} allQuestions={allQuestions} tasks={tasks} />}
+        {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} markManagedReviewed={markManagedReviewed} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} allQuestions={allQuestions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
         {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} />}
       </> : <PlayerDashboard profile={profile} assignments={assignments.filter(a=>a.status==='published')} submissions={submissions} onRefresh={()=>loadData(profile.id)} setMessage={setMessage} />}
@@ -192,7 +192,7 @@ function PasswordResetScreen({onComplete}:{onComplete:()=>void}){
 
 function ProfileMissing({email,onRetry}:{email:string;onRetry:()=>void}){ return <div className="authShell"><div className="authCard"><Logo/><h1>Finishing account setup</h1><p>Your login for <strong>{email}</strong> exists, but the FirstTouchIQ profile has not appeared yet.</p><button className="primary" onClick={onRetry}>Try again</button><p className="muted small">If this continues, the Supabase new-user profile trigger needs to be checked.</p></div></div> }
 
-function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSubmissions,playerCount,submittedCount,onOpen,selected,questions,allQuestions,tasks}:{teams:Team[];assignments:Assignment[];submissions:Submission[];managedPlayers:ManagedPlayer[];managedSubmissions:ManagedSubmission[];playerCount:number;submittedCount:number;onOpen:(id:string)=>void;selected:string|null;questions:Question[];allQuestions:Question[];tasks:Task[]}){
+function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSubmissions,markManagedReviewed,playerCount,submittedCount,onOpen,selected,questions,allQuestions,tasks}:{teams:Team[];assignments:Assignment[];submissions:Submission[];managedPlayers:ManagedPlayer[];managedSubmissions:ManagedSubmission[];markManagedReviewed:(submissionId:string)=>void;playerCount:number;submittedCount:number;onOpen:(id:string)=>void;selected:string|null;questions:Question[];allQuestions:Question[];tasks:Task[]}){
   const completed = managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted')
   return <>
     <div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount}/></div>
