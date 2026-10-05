@@ -438,13 +438,15 @@ setSavingAssignmentId("");
         !message && <p>No approved players yet.</p>
       )}
 
-      <p>
-        <a href="/parent/request">Register another player</a>
-      </p>
+      <div className="parentActions">
+  <a className="primary parentAction" href="/parent/request">
+    + Register another player
+  </a>
 
-      <p>
-        <a href="/">Back to FirstTouchIQ</a>
-      </p>
+  <a className="secondary parentAction" href="/">
+    Back to FirstTouchIQ
+  </a>
+</div>
        </main>
   </>
   );
