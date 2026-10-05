@@ -336,7 +336,7 @@ export default function CoachProgress() {
     ))}
   </div>
 )}
-{submission && (
+{(
   <button
     type="button"
     onClick={() => markReviewed(submission.id)}
