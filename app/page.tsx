@@ -197,7 +197,8 @@ function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSub
   const reviewedCount = submissions.filter(s => s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'reviewed').length
   const completed = managedSubmissions.filter(s => ['completed', 'submitted', 'reviewed'].includes(s.status))
   return <>
-    <div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount + reviewedCount}/></div>
+    <div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount}/>
+<Metric label="Reviewed" value={reviewedCount}/></div>
     <section className="card section">
       <div className="sectionHead"><div><h2>Assignments</h2><p className="muted">Track what your players are working on.</p></div></div>
       {assignments.length===0?<Empty text="No assignments yet. Create your first Watch → Think → Train assignment."/>:assignments.map(a=>{
