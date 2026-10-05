@@ -130,7 +130,8 @@ export default function Home() {
   if (profile.role === 'parent') return <div className="center"><div className="spinner"/><p>Opening parent dashboard…</p></div>
   const isCoach = profile.role === 'coach'
   const playerCount = profiles.filter(p => p.role === 'player').length + managedPlayers.length
-  const submittedCount = submissions.filter(s => s.status === 'submitted' || s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted').length
+  const submittedCount = submissions.filter(s => s.status === 'submitted').length + managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted').length
+  const reviewedCount = submissions.filter(s => s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'reviewed').length
 
   return <>
     <header className="topbar">
@@ -195,7 +196,7 @@ function ProfileMissing({email,onRetry}:{email:string;onRetry:()=>void}){ return
 function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSubmissions,markManagedReviewed,playerCount,submittedCount,onOpen,selected,questions,allQuestions,tasks}:{teams:Team[];assignments:Assignment[];submissions:Submission[];managedPlayers:ManagedPlayer[];managedSubmissions:ManagedSubmission[];markManagedReviewed:(submissionId:string)=>void;playerCount:number;submittedCount:number;onOpen:(id:string)=>void;selected:string|null;questions:Question[];allQuestions:Question[];tasks:Task[]}){
   const completed = managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted')
   return <>
-    <div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount}/></div>
+    <div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount + reviewedCount}/></div>
     <section className="card section">
       <div className="sectionHead"><div><h2>Assignments</h2><p className="muted">Track what your players are working on.</p></div></div>
       {assignments.length===0?<Empty text="No assignments yet. Create your first Watch → Think → Train assignment."/>:assignments.map(a=>{
