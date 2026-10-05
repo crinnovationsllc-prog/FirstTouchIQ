@@ -35,6 +35,27 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null)
 
+  async function markManagedReviewed(submissionId: string) {
+  if (!supabase) return
+
+  const { error } = await supabase
+    .from('parent_managed_submissions')
+    .update({ status: 'reviewed' })
+    .eq('id', submissionId)
+
+  if (error) {
+    setMessage(`Review error: ${error.message}`)
+    return
+  }
+
+  setManagedSubmissions(current =>
+    current.map(submission =>
+      submission.id === submissionId
+        ? { ...submission, status: 'reviewed' }
+        : submission
+    )
+  )
+}
   const loadData = useCallback(async (userId: string) => {
     if (!supabase) return
     setLoading(true)
@@ -223,7 +244,14 @@ function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSub
                 );
               }
             )}
-            <button type="button">TEST BUTTON VISIBLE</button>
+            {s.status !== "reviewed" && (
+  <button
+    type="button"
+    onClick={() => markManagedReviewed(s.id)}
+  >
+    Mark Reviewed
+  </button>
+)}
           </div>
         </div>
       );
