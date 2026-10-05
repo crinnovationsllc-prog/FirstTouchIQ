@@ -339,7 +339,7 @@ export default function CoachProgress() {
 {(
   <button
     type="button"
-    onClick={() => markReviewed(submission.id)}
+    onClick={() => markReviewed(submission?.id || "")}
   >
     Mark Reviewed
   </button>
