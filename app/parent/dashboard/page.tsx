@@ -302,7 +302,6 @@ setSavingAssignmentId("");
   value={selectedId}
   onChange={(event) => setSelectedId(event.target.value)}
 >
-          >
             {players.map((player) => (
               <option key={player.id} value={player.id}>
                 {player.display_name}
