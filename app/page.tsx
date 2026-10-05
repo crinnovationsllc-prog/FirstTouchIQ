@@ -195,7 +195,7 @@ function ProfileMissing({email,onRetry}:{email:string;onRetry:()=>void}){ return
 
 function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSubmissions,markManagedReviewed,playerCount,submittedCount,onOpen,selected,questions,allQuestions,tasks}:{teams:Team[];assignments:Assignment[];submissions:Submission[];managedPlayers:ManagedPlayer[];managedSubmissions:ManagedSubmission[];markManagedReviewed:(submissionId:string)=>void;playerCount:number;submittedCount:number;onOpen:(id:string)=>void;selected:string|null;questions:Question[];allQuestions:Question[];tasks:Task[]}){
   const reviewedCount = submissions.filter(s => s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'reviewed').length
-  const completed = managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted')
+  const completed = managedSubmissions.filter(s => ['completed', 'submitted', 'reviewed'].includes(s.status))
   return <>
     <div className="metrics"><Metric label="Players" value={playerCount}/><Metric label="Teams" value={teams.length}/><Metric label="Assignments" value={assignments.length}/><Metric label="Submitted" value={submittedCount + reviewedCount}/></div>
     <section className="card section">
