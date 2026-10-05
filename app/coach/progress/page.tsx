@@ -35,7 +35,7 @@ type Assignment = {
 };
 
 type Submission = {
-
+id: string;
   assignment_id: string;
 
   managed_player_id: string;
@@ -60,7 +60,21 @@ export default function CoachProgress() {
   const [message, setMessage] = useState("Loading...");
 
   useEffect(() => {
+async function markReviewed(submissionId: string) {
+  if (!supabase) return;
 
+  const { error } = await supabase
+    .from("parent_managed_submissions")
+    .update({ status: "reviewed" })
+    .eq("id", submissionId);
+
+  if (error) {
+    alert("Review error: " + error.message);
+    return;
+  }
+
+  await load();
+}
     async function load() {
 
       if (!supabase) {
@@ -173,7 +187,7 @@ export default function CoachProgress() {
 
           .select(
 
-            "assignment_id,managed_player_id,status,training_completed,answers"
+            "id,assignment_id,managed_player_id,status,training_completed,answers"
 
           );
 
@@ -322,7 +336,14 @@ export default function CoachProgress() {
     ))}
   </div>
 )}
-
+{submission && submission.status !== "reviewed" && (
+  <button
+    type="button"
+    onClick={() => markReviewed(submission.id)}
+  >
+    Mark Reviewed
+  </button>
+)}
                       </div>
 
                     );
