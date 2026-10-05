@@ -144,7 +144,7 @@ export default function Home() {
         <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/approvals">Player requests</a></nav>
         {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} markManagedReviewed={markManagedReviewed} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} allQuestions={allQuestions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
-        {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} />}
+        {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} assignments={assignments} managedSubmissions={managedSubmissions} />}
       </> : <PlayerDashboard profile={profile} assignments={assignments.filter(a=>a.status==='published')} submissions={submissions} onRefresh={()=>loadData(profile.id)} setMessage={setMessage} />}
     </main>
   </>
@@ -283,6 +283,8 @@ if (taskError) {
 function TeamCreator({userId,onCreated,setMessage}:{userId:string;onCreated:()=>void;setMessage:(m:string)=>void}){const [name,setName]=useState('');async function add(){if(!supabase||!name.trim())return;const {error}=await supabase.from('teams').insert({name:name.trim(),created_by:userId});if(error)setMessage(error.message);else onCreated()}return <div className="callout"><b>No teams yet</b><p>Create your first team before publishing assignments.</p><div className="inline"><input value={name} onChange={e=>setName(e.target.value)} placeholder="12U Girls"/><button className="secondary" type="button" onClick={add}>Create team</button></div></div>}
 
 function Players({
+  assignments,
+managedSubmissions,
   teams,
   profiles,
   submissions,
@@ -292,9 +294,55 @@ function Players({
   profiles: Profile[];
   submissions: Submission[];
   managedPlayers: ManagedPlayer[];
+  assignments: Assignment[];
+managedSubmissions: ManagedSubmission[];
 }) {
   const players = profiles.filter((p) => p.role === 'player');
+  const [selectedManagedPlayer, setSelectedManagedPlayer] = useState<ManagedPlayer | null>(null);
+  if (selectedManagedPlayer) {
+  return (
+    <section className="card">
+      <button
+        type="button"
+        className="linkButton left"
+        onClick={() => setSelectedManagedPlayer(null)}
+      >
+        ← Back to players
+      </button>
 
+      <h2>{selectedManagedPlayer.display_name}</h2>
+
+      <p className="muted">
+        {teams.find((t) => t.id === selectedManagedPlayer.team_id)?.name || 'Player'}
+      </p>
+
+      <div>
+  <h3>Assignment History</h3>
+
+  {assignments
+    .filter((a) => a.team_id === selectedManagedPlayer.team_id)
+    .map((a) => {
+      const submission = managedSubmissions.find(
+        (s) =>
+          s.assignment_id === a.id &&
+          s.managed_player_id === selectedManagedPlayer.id
+      );
+
+      return (
+        <div className="playerRow" key={a.id}>
+          <div className="grow">
+            <b>{a.title}</b>
+            <div className="muted">
+              {submission?.status?.replace(/_/g, ' ') || 'not started'}
+            </div>
+          </div>
+        </div>
+      );
+    })}
+</div>
+    </section>
+  );
+}
   return (
     <section className="card">
       <h2>Players</h2>
@@ -323,7 +371,12 @@ function Players({
       ))}
 
       {managedPlayers.map((p) => (
-        <div className="playerRow" key={p.id}>
+        <div
+  className="playerRow"
+  key={p.id}
+  onClick={() => setSelectedManagedPlayer(p)}
+  style={{ cursor: 'pointer' }}
+>
           <div className="avatar">
             {p.display_name.slice(0, 1).toUpperCase()}
           </div>
