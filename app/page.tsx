@@ -82,7 +82,7 @@ export default function Home() {
         supabase.from('profiles').select('*').eq('active', true).order('display_name'),
         supabase.from('parent_managed_players').select('id,display_name,team_id'),
         supabase.from('parent_managed_submissions').select('id,assignment_id,managed_player_id,status,answers'),
-        supabase.from('questions').select('*').order('position')
+        supabase.from('questions').select('*').order('position'),
         supabase.from('assignment_tasks').select('*').order('position')
       ])
       setProfiles((people || []) as Profile[])
