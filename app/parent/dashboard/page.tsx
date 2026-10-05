@@ -57,6 +57,7 @@ export default function ParentDashboard() {
 }
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [parentName, setParentName] = useState("");
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -85,7 +86,7 @@ useEffect(() => {
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("role,active")
+        .select("role,active,display_name")
         .eq("id", auth.user.id)
         .single();
 
@@ -93,7 +94,7 @@ useEffect(() => {
         setMessage("An active parent account is required.");
         return;
       }
-
+      setParentName(profile.display_name || "Parent");
       const { data: children, error: playerError } = await supabase
         .from("parent_managed_players")
         .select("id,display_name,team_id")
@@ -193,6 +194,15 @@ setTasks(taskData || []);
 
   const selected = players.find((player) => player.id === selectedId);
   const team = teams.find((item) => item.id === selected?.team_id);
+  const completedCount = submissions.filter((item) =>
+  ["completed", "submitted", "reviewed"].includes(item.status)
+).length;
+
+const dueCount = Math.max(assignments.length - completedCount, 0);
+
+const progressPercent = assignments.length
+  ? Math.round((completedCount / assignments.length) * 100)
+  : 0;
 async function saveProgress(assignmentId: string, status: "in_progress" | "completed") {
   if (!supabase || !selected || savingAssignmentId) return;
   const existing = submissions.find((item) => item.assignment_id === assignmentId);
@@ -282,14 +292,39 @@ setSavingAssignmentId("");
     </header>
 
     <main className="wrap">
-      <div className="welcome">
-        <div className="eyebrow">PARENT DASHBOARD</div>
-        <h1>Parent Dashboard</h1>
-        <p className="muted">
-          Manage your children's FirstTouchIQ profiles and weekly assignments.
-        </p>
-      </div>
+      <div className="welcome parentWelcome">
+  <div className="eyebrow">PARENT DASHBOARD</div>
+  <h1>Welcome, {parentName || "Parent"}</h1>
+  <p className="muted">
+    Manage your players and weekly development below.
+  </p>
+</div>
 
+<div className="developmentBanner">
+  <span>WATCH</span>
+  <i>→</i>
+  <span>THINK</span>
+  <i>→</i>
+  <span>TRAIN</span>
+  <i>→</i>
+  <span>DEVELOP</span>
+</div>
+<div className="metrics parentMetrics">
+  <div className="card metric">
+    <span className="muted">Players</span>
+    <b>{players.length}</b>
+  </div>
+
+  <div className="card metric">
+    <span className="muted">Assignments Due</span>
+    <b>{dueCount}</b>
+  </div>
+
+  <div className="card metric">
+    <span className="muted">Completed</span>
+    <b>{completedCount}</b>
+  </div>
+</div>
       {message && <p role="status">{message}</p>}
 
       {players.length > 0 ? (
@@ -310,62 +345,123 @@ setSavingAssignmentId("");
           </select>
 
           {selected && (
-            <section className="card section">
-              <h2>{selected.display_name}</h2>
-              <p>Team: {team?.name || "Team unavailable"}</p>
+  <section className="card section parentPlayerCard">
+    <div className="parentPlayerSummary">
+      <div className="parentPlayerAvatar">
+        {selected.display_name.slice(0, 1).toUpperCase()}
+      </div>
 
-              <h3>Assignments</h3>
+      <div className="grow">
+        <div className="eyebrow">PLAYER PROFILE</div>
+        <h2>{selected.display_name}</h2>
+        <span className="teamBadge">
+          {team?.name || "Team unavailable"}
+        </span>
+      </div>
 
+      <div className="parentCompletion">
+        <strong>{completedCount}/{assignments.length}</strong>
+        <span>completed</span>
+      </div>
+    </div>
+
+    <div className="progress parentProgress">
+      <i style={{ width: `${progressPercent}%` }} />
+    </div>
+
+    <div className="parentProgressCaption">
+      <span>Weekly progress</span>
+      <strong>{progressPercent}%</strong>
+    </div>
+
+    <div className="parentAssignmentHeader">
+      <div>
+        <div className="eyebrow">WEEKLY HOMEWORK</div>
+        <h3>Assignments</h3>
+      </div>
+
+      {dueCount > 0 && (
+        <span className="pill">{dueCount} remaining</span>
+      )}
+    </div>
               {assignmentMessage && (
                 <p role="status">{assignmentMessage}</p>
               )}
 
               {!assignmentMessage && assignments.length === 0 && (
-                <p>No published assignments yet.</p>
-              )}
+  <div className="empty parentEmpty">
+    <div className="parentEmptyIcon">⚽</div>
+    <h3>You&apos;re all caught up!</h3>
+    <p>No new assignments this week.</p>
+  </div>
+)}
 
               {assignments.map((assignment) => {
                 const submission = submissions.find(
                   (item) => item.assignment_id === assignment.id
                 );
-                const isComplete = submission?.status === "completed" || submission?.status === "submitted";
+                const isComplete =
+  submission?.status === "completed" ||
+  submission?.status === "submitted" ||
+  submission?.status === "reviewed";
 
+const assignmentProgress = isComplete
+  ? 100
+  : submission?.status === "in_progress"
+    ? 50
+    : 0;
                 return (
                   <article
   key={assignment.id}
-  className="card section"
+  className={`parentAssignmentCard${isComplete ? " complete" : ""}`}
 >
-                    <h4>{assignment.title}</h4>
+  <div className="parentAssignmentTop">
+    <div>
+      <div className="eyebrow">FIRSTTOUCHIQ ASSIGNMENT</div>
+      <h4>{assignment.title}</h4>
+    </div>
+
+    <span className={`pill${isComplete ? " success" : ""}`}>
+      {submission?.status
+        ? submission.status.replace(/_/g, " ")
+        : "Not started"}
+    </span>
+  </div>
 
                     {assignment.instructions && (
-                      <p>{assignment.instructions}</p>
-                    )}
+  <p className="parentInstructions">
+    {assignment.instructions}
+  </p>
+)}
+
+<div className="progress parentAssignmentProgress">
+  <i style={{ width: `${assignmentProgress}%` }} />
+</div>
 
                     {assignment.due_at && (
-                      <p>
-                        Due:{" "}
-                        {new Date(assignment.due_at).toLocaleString()}
-                      </p>
-                    )}
+  <div className="dueBadge">
+    Due {new Date(assignment.due_at).toLocaleString()}
+  </div>
+)}
 
                     {assignment.video_url && (
-                      <p>
-                        <a
-                          href={assignment.video_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Watch training video
-                        </a>
-                      </p>
-                    )}
+  <a
+    className="secondary parentVideoLink"
+    href={assignment.video_url}
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    ▶ Watch training video
+  </a>
+)}
 {questions
   .filter((question) => question.assignment_id === assignment.id)
   .map((question) => (
-    <div key={question.id} style={{ marginBottom: 15 }}>
+    <div key={question.id} className="parentQuestion">
       <label htmlFor={`answer-${assignment.id}-${question.id}`}>
         {question.prompt}
       </label>
+
       <textarea
         id={`answer-${assignment.id}-${question.id}`}
         value={
@@ -386,26 +482,22 @@ setSavingAssignmentId("");
         }
         disabled={isComplete}
         rows={3}
-        style={{ display: "block", width: "100%", marginTop: 6 }}
       />
     </div>
   ))}
 {tasks
   .filter((task) => task.assignment_id === assignment.id)
   .map((task) => (
-    <div key={task.id} style={{ marginBottom: 15 }}>
-      <strong>Training Task</strong>
-      <p>{task.description}</p>
+    <div key={task.id} className="parentTask">
+      <div className="parentTaskIcon">✓</div>
+
+      <div>
+        <strong>Training Task</strong>
+        <p>{task.description}</p>
+      </div>
     </div>
   ))}
                     
-                    <p>
-  <span className="pill">
-    {submission?.status
-      ? submission.status.replace(/_/g, " ")
-      : "Not started"}
-  </span>
-</p>
               <button
   type="button"
   className="secondary"
@@ -416,6 +508,7 @@ setSavingAssignmentId("");
   Save progress
 
 </button> 
+                    <div className="parentAssignmentActions">
                   <button
 
   type="button"
@@ -428,6 +521,7 @@ setSavingAssignmentId("");
   Mark Complete
 
 </button>
+                      </div>
                   </article>
                 );
               })}
@@ -435,8 +529,14 @@ setSavingAssignmentId("");
           )}
         </>
       ) : (
-        !message && <p>No approved players yet.</p>
-      )}
+  !message && (
+    <div className="empty parentEmpty">
+      <div className="parentEmptyIcon">⚽</div>
+      <h3>No approved players yet</h3>
+      <p>Register a player to begin receiving weekly assignments.</p>
+    </div>
+  )
+)}
 
       <div className="parentActions">
   <a className="primary parentAction" href="/parent/request">
