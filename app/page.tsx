@@ -144,7 +144,8 @@ export default function Home() {
         <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/approvals">Player requests</a></nav>
         {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} markManagedReviewed={markManagedReviewed} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} allQuestions={allQuestions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
-        {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} assignments={assignments} managedSubmissions={managedSubmissions} />}
+        {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} assignments={assignments} managedSubmissions={managedSubmissions}
+allQuestions={allQuestions} />}
       </> : <PlayerDashboard profile={profile} assignments={assignments.filter(a=>a.status==='published')} submissions={submissions} onRefresh={()=>loadData(profile.id)} setMessage={setMessage} />}
     </main>
   </>
@@ -284,7 +285,8 @@ function TeamCreator({userId,onCreated,setMessage}:{userId:string;onCreated:()=>
 
 function Players({
   assignments,
-managedSubmissions,
+  managedSubmissions,
+  allQuestions,
   teams,
   profiles,
   submissions,
@@ -295,10 +297,56 @@ managedSubmissions,
   submissions: Submission[];
   managedPlayers: ManagedPlayer[];
   assignments: Assignment[];
-managedSubmissions: ManagedSubmission[];
+  managedSubmissions: ManagedSubmission[];
+  allQuestions: Question[];
 }) {
   const players = profiles.filter((p) => p.role === 'player');
   const [selectedManagedPlayer, setSelectedManagedPlayer] = useState<ManagedPlayer | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  if (selectedManagedPlayer && selectedAssignment) {
+  const submission = managedSubmissions.find(
+    (s) =>
+      s.assignment_id === selectedAssignment.id &&
+      s.managed_player_id === selectedManagedPlayer.id
+  );
+
+  return (
+    <section className="card">
+      <button
+        type="button"
+        className="linkButton left"
+        onClick={() => setSelectedAssignment(null)}
+      >
+        ← Back to assignment history
+      </button>
+
+      <h2>{selectedAssignment.title}</h2>
+
+      <p className="muted">
+        {submission?.status?.replace(/_/g, ' ') || 'not started'}
+      </p>
+
+      {submission?.answers && (
+        <div>
+          <h3>Player Answers</h3>
+
+          {Object.entries(submission.answers).map(([questionId, answer]) => {
+  const question = allQuestions.find(
+    (q) => q.id === questionId
+  );
+
+  return (
+    <div className="contentLine" key={questionId}>
+      <b>{question?.prompt || 'Question'}</b>
+      <span>{answer}</span>
+    </div>
+  );
+})}
+        </div>
+      )}
+    </section>
+  );
+}
   if (selectedManagedPlayer) {
   return (
     <section className="card">
@@ -329,7 +377,12 @@ managedSubmissions: ManagedSubmission[];
       );
 
       return (
-        <div className="playerRow" key={a.id}>
+        <div
+  className="playerRow"
+  key={a.id}
+  onClick={() => setSelectedAssignment(a)}
+  style={{ cursor: 'pointer' }}
+>
           <div className="grow">
             <b>{a.title}</b>
             <div className="muted">
