@@ -260,10 +260,35 @@ setSavingAssignmentId("");
 }
   
   return (
-    <main style={{ maxWidth: 700, margin: "40px auto", padding: 20 }}>
-      <h1>Parent Dashboard</h1>
-      <button onClick={signOut}>Sign out</button>
-      <p>Manage your children's FirstTouchIQ profiles.</p>
+  <>
+    <header className="topbar">
+      <div>
+        <div className="brand">
+          FirstTouch<span>IQ</span>
+        </div>
+        <div className="tag">Watch. Think. Train. Develop.</div>
+      </div>
+
+      <div className="userbox">
+        <div>
+          <strong>Parent Dashboard</strong>
+          <small>Parent</small>
+        </div>
+
+        <button className="ghost" onClick={signOut}>
+          Sign out
+        </button>
+      </div>
+    </header>
+
+    <main className="wrap">
+      <div className="welcome">
+        <div className="eyebrow">PARENT DASHBOARD</div>
+        <h1>Parent Dashboard</h1>
+        <p className="muted">
+          Manage your children's FirstTouchIQ profiles and weekly assignments.
+        </p>
+      </div>
 
       {message && <p role="status">{message}</p>}
 
@@ -272,10 +297,11 @@ setSavingAssignmentId("");
           <label htmlFor="child">Select player</label>
 
           <select
-            id="child"
-            value={selectedId}
-            onChange={(event) => setSelectedId(event.target.value)}
-            style={{ display: "block", margin: "12px 0", padding: 10 }}
+  id="child"
+  className="parentSelect"
+  value={selectedId}
+  onChange={(event) => setSelectedId(event.target.value)}
+>
           >
             {players.map((player) => (
               <option key={player.id} value={player.id}>
@@ -285,7 +311,7 @@ setSavingAssignmentId("");
           </select>
 
           {selected && (
-            <section style={{ border: "1px solid #888", padding: 20 }}>
+            <section className="card section">
               <h2>{selected.display_name}</h2>
               <p>Team: {team?.name || "Team unavailable"}</p>
 
@@ -307,13 +333,9 @@ setSavingAssignmentId("");
 
                 return (
                   <article
-                    key={assignment.id}
-                    style={{
-                      border: "1px solid #888",
-                      padding: 15,
-                      marginBottom: 15,
-                    }}
-                  >
+  key={assignment.id}
+  className="card section"
+>
                     <h4>{assignment.title}</h4>
 
                     {assignment.instructions && (
@@ -379,12 +401,18 @@ setSavingAssignmentId("");
   ))}
                     
                     <p>
-                      Status:{" "}
-                      {submission?.status
-                        ? submission.status.replace(/_/g, " ")
-                        : "Not started"}
-                    </p>
-              <button type="button" disabled={isComplete || Boolean(savingAssignmentId)} onClick={() => saveProgress(assignment.id, "in_progress")}>
+  <span className="pill">
+    {submission?.status
+      ? submission.status.replace(/_/g, " ")
+      : "Not started"}
+  </span>
+</p>
+              <button
+  type="button"
+  className="secondary"
+  disabled={isComplete || Boolean(savingAssignmentId)}
+  onClick={() => saveProgress(assignment.id, "in_progress")}
+>
 
   Save progress
 
@@ -392,7 +420,7 @@ setSavingAssignmentId("");
                   <button
 
   type="button"
-
+  className="primary"
   disabled={isComplete || Boolean(savingAssignmentId)}
   onClick={() => saveProgress(assignment.id, "completed")}
 
@@ -418,6 +446,7 @@ setSavingAssignmentId("");
       <p>
         <a href="/">Back to FirstTouchIQ</a>
       </p>
-    </main>
+       </main>
+  </>
   );
 }
