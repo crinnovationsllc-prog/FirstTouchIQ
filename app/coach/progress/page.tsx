@@ -59,8 +59,7 @@ export default function CoachProgress() {
 
   const [message, setMessage] = useState("Loading...");
 
-  useEffect(() => {
-async function markReviewed(submissionId: string) {
+  async function markReviewed(submissionId: string) {
   if (!supabase) return;
 
   const { error } = await supabase
@@ -75,6 +74,8 @@ async function markReviewed(submissionId: string) {
 
   await load();
 }
+  useEffect(() => {
+
     async function load() {
 
       if (!supabase) {
