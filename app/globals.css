@@ -34,3 +34,291 @@
   justify-content:center;
   text-decoration:none;
 }
+.parentWelcome{
+  margin-bottom:18px;
+}
+
+.developmentBanner{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  flex-wrap:wrap;
+  background:linear-gradient(135deg,var(--navy),var(--royal));
+  color:#fff;
+  border-radius:16px;
+  padding:14px 18px;
+  margin-bottom:18px;
+  font-size:12px;
+  font-weight:850;
+  letter-spacing:.8px;
+}
+
+.developmentBanner i{
+  font-style:normal;
+  opacity:.65;
+}
+
+.parentMetrics{
+  grid-template-columns:repeat(3,1fr);
+  margin-bottom:18px;
+}
+
+.parentSelectorBlock{
+  margin-top:20px;
+}
+
+.parentPlayerCard{
+  padding:22px;
+}
+
+.parentPlayerSummary{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.parentPlayerAvatar{
+  width:54px;
+  height:54px;
+  border-radius:50%;
+  background:#eaf1ff;
+  color:var(--royal);
+  display:grid;
+  place-items:center;
+  font-size:22px;
+  font-weight:850;
+  flex:0 0 auto;
+}
+
+.teamBadge{
+  display:inline-flex;
+  margin-top:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#eef4ff;
+  color:var(--royal);
+  font-size:12px;
+  font-weight:800;
+}
+
+.parentCompletion{
+  text-align:right;
+}
+
+.parentCompletion strong{
+  display:block;
+  font-size:20px;
+}
+
+.parentCompletion span{
+  display:block;
+  margin-top:2px;
+  color:var(--muted);
+  font-size:12px;
+}
+
+.parentProgress{
+  max-width:none;
+  margin-top:18px;
+}
+
+.parentProgressCaption{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:7px;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.parentAssignmentHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-top:28px;
+  margin-bottom:12px;
+}
+
+.parentAssignmentHeader h3{
+  margin:3px 0 0;
+}
+
+.parentEmpty{
+  padding:32px 20px;
+}
+
+.parentEmptyIcon{
+  font-size:34px;
+  margin-bottom:8px;
+}
+
+.parentEmpty h3{
+  margin:0 0 5px;
+  color:var(--ink);
+}
+
+.parentEmpty p{
+  margin:0;
+}
+
+.parentAssignmentCard{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:18px;
+  margin-top:14px;
+  box-shadow:0 1px 2px #1018280a;
+}
+
+.parentAssignmentCard.complete{
+  border-color:#b7e4c7;
+}
+
+.parentAssignmentTop{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+}
+
+.parentAssignmentTop h4{
+  margin:4px 0 0;
+  font-size:18px;
+}
+
+.dueBadge{
+  display:inline-flex;
+  margin-top:12px;
+  padding:6px 9px;
+  border-radius:8px;
+  background:#fff7ed;
+  color:#9a3412;
+  font-size:12px;
+  font-weight:800;
+}
+
+.parentInstructions{
+  margin:14px 0 0;
+  color:#475467;
+  line-height:1.5;
+}
+
+.parentAssignmentProgress{
+  max-width:none;
+  margin:16px 0;
+}
+
+.parentVideoLink{
+  display:inline-flex;
+  align-items:center;
+  text-decoration:none;
+  margin-bottom:16px;
+}
+
+.parentQuestion{
+  display:grid;
+  gap:7px;
+  margin:18px 0;
+  font-size:14px;
+  font-weight:700;
+}
+
+.parentQuestion textarea{
+  width:100%;
+  min-height:92px;
+  padding:12px 13px;
+  border:1px solid #d0d5dd;
+  border-radius:10px;
+  background:#fff;
+  color:var(--ink);
+  resize:vertical;
+  outline:none;
+}
+
+.parentQuestion textarea:focus{
+  border-color:#84adff;
+  box-shadow:0 0 0 3px #155eef18;
+}
+
+.parentTask{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  background:#f8fafc;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:14px;
+  margin:16px 0;
+}
+
+.parentTaskIcon{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:#ecfdf3;
+  color:var(--green);
+  display:grid;
+  place-items:center;
+  font-weight:850;
+  flex:0 0 auto;
+}
+
+.parentTask p{
+  margin:5px 0 0;
+  color:var(--muted);
+}
+
+.parentAssignmentActions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:18px;
+}
+
+@media(max-width:760px){
+  .parentMetrics{
+    grid-template-columns:repeat(3,1fr);
+  }
+
+  .parentPlayerSummary{
+    align-items:flex-start;
+  }
+
+  .parentCompletion{
+    margin-left:auto;
+  }
+
+  .parentAssignmentTop{
+    flex-direction:column;
+  }
+}
+
+@media(max-width:520px){
+  .parentMetrics{
+    grid-template-columns:1fr;
+  }
+
+  .developmentBanner{
+    gap:8px;
+    font-size:11px;
+  }
+
+  .parentPlayerSummary{
+    flex-wrap:wrap;
+  }
+
+  .parentCompletion{
+    width:100%;
+    text-align:left;
+  }
+
+  .parentAssignmentActions{
+    flex-direction:column;
+  }
+
+  .parentAssignmentActions button{
+    width:100%;
+  }
+}
