@@ -240,7 +240,7 @@ function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSub
         const done=direct.filter(s=>
   ['submitted','reviewed'].includes(s.status)).length+managed.filter(s=>
   ['completed','submitted','reviewed'].includes(s.status)).length
-        return <div className="assignmentRow" key={a.id}><div className="grow"><div className="eyebrow">{team?.name||'Team'} · {a.status}</div><h3>{a.title}</h3><div className="muted">Due {fmtDue(a.due_at)} · {done} submitted</div><div className="progress"><i style={{width:`${total?Math.round(done/total*100):0}%`}}/></div></div><button className="secondary" onClick={()=>onOpen(a.id)}>{selected===a.id?'Refresh':'View'}</button></div>
+        return <div className="assignmentRow" key={a.id}><div className="grow"><div className="eyebrow">{team?.name||'Team'} · {a.status}</div><h3>{a.title}</h3><div className="muted">Due {fmtDue(a.due_at)} · {done} completed</div><div className="progress"><i style={{width:`${total?Math.round(done/total*100):0}%`}}/></div></div><button className="secondary" onClick={()=>onOpen(a.id)}>{selected===a.id?'Refresh':'View'}</button></div>
       })}
     </section>
    {completed.length > 0 && (
