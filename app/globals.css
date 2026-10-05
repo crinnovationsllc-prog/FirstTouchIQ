@@ -21,3 +21,16 @@
 .tag{
   display:block!important;
 }
+.parentActions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:18px;
+}
+
+.parentAction{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-decoration:none;
+}
