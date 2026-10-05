@@ -229,7 +229,7 @@ function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSub
           <div>
             <strong>{player?.display_name || 'Player'}</strong>
             <div className="muted">
-              {{assignment?.title || 'Assignment'} · {s.status.replace(/_/g, ' ')}
+              {assignment?.title || 'Assignment'} · {s.status.replace(/_/g, ' ')}
             </div>
 
             {Object.entries(s.answers || {}).map(
