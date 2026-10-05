@@ -72,7 +72,6 @@ export default function CoachProgress() {
     return;
   }
 
-  await load();
 }
   useEffect(() => {
 
