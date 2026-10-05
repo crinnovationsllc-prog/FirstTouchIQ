@@ -502,7 +502,7 @@ const assignmentProgress = isComplete
   .filter((task) => task.assignment_id === assignment.id)
   .map((task) => (
     <div key={task.id} className="parentTask">
-      <div className="parentTaskIcon">✓</div>
+      <div className="parentTaskIcon">⚽</div>
 
       <div>
         <strong>Training Task</strong>
