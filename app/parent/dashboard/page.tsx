@@ -360,11 +360,22 @@ setSavingAssignmentId("");
       </div>
 
       <div className="parentCompletion">
-        <strong>{completedCount}/{assignments.length}</strong>
-        <span>completed</span>
-      </div>
+  {assignments.length > 0 ? (
+    <>
+      <strong>{completedCount}/{assignments.length}</strong>
+      <span>completed</span>
+    </>
+  ) : (
+    <>
+      <strong>No assignments</strong>
+      <span>this week</span>
+    </>
+  )}
+</div>
     </div>
 
+    {assignments.length > 0 && (
+  <>
     <div className="progress parentProgress">
       <i style={{ width: `${progressPercent}%` }} />
     </div>
@@ -373,6 +384,8 @@ setSavingAssignmentId("");
       <span>Weekly progress</span>
       <strong>{progressPercent}%</strong>
     </div>
+  </>
+)}
 
     <div className="parentAssignmentHeader">
       <div>
