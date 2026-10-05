@@ -302,7 +302,15 @@ if (taskError) {
   onClick={() => setQuestionCount((count) => count + 1)}
 >
   + Add Question
-</button><label className="full">Training task<textarea name="task" placeholder="100 wall passes — 50 right foot / 50 left foot."/></label><button className="primary full" disabled={busy||teams.length===0}>{busy?'Publishing…':'Publish Assignment'}</button></form></section>
+</button>{questionCount > 2 && (
+  <button
+    type="button"
+    className="secondary full"
+    onClick={() => setQuestionCount((count) => Math.max(2, count - 1))}
+  >
+    − Remove Question
+  </button>
+)}<label className="full">Training task<textarea name="task" placeholder="100 wall passes — 50 right foot / 50 left foot."/></label><button className="primary full" disabled={busy||teams.length===0}>{busy?'Publishing…':'Publish Assignment'}</button></form></section>
 }
 function TeamCreator({userId,onCreated,setMessage}:{userId:string;onCreated:()=>void;setMessage:(m:string)=>void}){const [name,setName]=useState('');async function add(){if(!supabase||!name.trim())return;const {error}=await supabase.from('teams').insert({name:name.trim(),created_by:userId});if(error)setMessage(error.message);else onCreated()}return <div className="callout"><b>No teams yet</b><p>Create your first team before publishing assignments.</p><div className="inline"><input value={name} onChange={e=>setName(e.target.value)} placeholder="12U Girls"/><button className="secondary" type="button" onClick={add}>Create team</button></div></div>}
 
