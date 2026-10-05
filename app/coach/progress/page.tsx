@@ -341,7 +341,7 @@ export default function CoachProgress() {
     type="button"
     onClick={() => markReviewed(submission?.id || "")}
   >
-    Mark Reviewed
+    TEST BUTTON VISIBLE
   </button>
 )}
                       </div>
