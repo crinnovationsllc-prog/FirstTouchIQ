@@ -32,6 +32,7 @@ export default function Home() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
+  const [allTasks, setAllTasks] = useState<Task[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null)
 
@@ -77,16 +78,18 @@ export default function Home() {
     setSubmissions((s || []) as Submission[])
 
     if (current.role === 'coach') {
-      const [{ data: people }, { data: managed }, { data: progress }, { data: allQuestionData }] = await Promise.all([
+      const [{ data: people }, { data: managed }, { data: progress }, { data: allQuestionData }, { data: allTaskData }] = await Promise.all([
         supabase.from('profiles').select('*').eq('active', true).order('display_name'),
         supabase.from('parent_managed_players').select('id,display_name,team_id'),
         supabase.from('parent_managed_submissions').select('id,assignment_id,managed_player_id,status,answers'),
         supabase.from('questions').select('*').order('position')
+        supabase.from('assignment_tasks').select('*').order('position')
       ])
       setProfiles((people || []) as Profile[])
       setManagedPlayers((managed || []) as ManagedPlayer[])
       setManagedSubmissions((progress || []) as ManagedSubmission[])
       setAllQuestions((allQuestionData || []) as Question[])
+      setAllTasks((allTaskData || []) as Task[])
     }
     setLoading(false)
   }, [])
@@ -145,7 +148,7 @@ export default function Home() {
         {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} markManagedReviewed={markManagedReviewed} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} allQuestions={allQuestions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
         {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} assignments={assignments} managedSubmissions={managedSubmissions}
-allQuestions={allQuestions} />}
+allQuestions={allQuestions} allTasks={allTasks} />}
       </> : <PlayerDashboard profile={profile} assignments={assignments.filter(a=>a.status==='published')} submissions={submissions} onRefresh={()=>loadData(profile.id)} setMessage={setMessage} />}
     </main>
   </>
@@ -287,6 +290,7 @@ function Players({
   assignments,
   managedSubmissions,
   allQuestions,
+  allTasks,
   teams,
   profiles,
   submissions,
@@ -299,6 +303,7 @@ function Players({
   assignments: Assignment[];
   managedSubmissions: ManagedSubmission[];
   allQuestions: Question[];
+  allTasks: Task[];
 }) {
   const players = profiles.filter((p) => p.role === 'player');
   const [selectedManagedPlayer, setSelectedManagedPlayer] = useState<ManagedPlayer | null>(null);
@@ -325,7 +330,14 @@ function Players({
       <p className="muted">
         {submission?.status?.replace(/_/g, ' ') || 'not started'}
       </p>
-
+{allTasks
+  .filter((task) => task.assignment_id === selectedAssignment.id)
+  .map((task) => (
+    <div className="contentLine" key={task.id}>
+      <b>Training Task</b>
+      <span>{task.description}</span>
+    </div>
+  ))}
       {submission?.answers && (
         <div>
           <h3>Player Answers</h3>
