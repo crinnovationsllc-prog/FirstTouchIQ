@@ -533,7 +533,7 @@ function AssignmentActions({ assignment }: { assignment: Assignment }) {
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-
+  const [editQuestions, setEditQuestions] = useState<Question[]>([])
   function localDue(value: string | null) {
     if (!value) return ''
     const date = new Date(value)
@@ -552,7 +552,38 @@ function AssignmentActions({ assignment }: { assignment: Assignment }) {
     }
     return data.user.id
   }
+  async function toggleEditor() {
+  setError('')
 
+  if (editing) {
+    setEditing(false)
+    return
+  }
+
+  if (!supabase || busy) return
+  setBusy(true)
+
+  try {
+    await checkOwner()
+
+    const { data, error } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('assignment_id', assignment.id)
+      .order('position')
+
+    if (error) throw new Error(error.message)
+
+    setEditQuestions((data || []) as Question[])
+    setEditing(true)
+  } catch (err) {
+    setError(
+      err instanceof Error ? err.message : 'Could not load questions.'
+    )
+  } finally {
+    setBusy(false)
+  }
+}
   async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!supabase || busy) return
