@@ -240,7 +240,12 @@ function CoachDashboard({teams,assignments,submissions,managedPlayers,managedSub
         const done=direct.filter(s=>
   ['submitted','reviewed'].includes(s.status)).length+managed.filter(s=>
   ['completed','submitted','reviewed'].includes(s.status)).length
-        return <div className="assignmentRow" key={a.id}><div className="grow"><div className="eyebrow">{team?.name||'Team'} · {a.status}</div><h3>{a.title}</h3><div className="muted">Due {fmtDue(a.due_at)} · {done} completed</div><div className="progress"><i style={{width:`${total?Math.round(done/total*100):0}%`}}/></div></div><button className="secondary" onClick={()=>onOpen(a.id)}>{selected===a.id?'Refresh':'View'}</button></div>
+        return <div className="assignmentRow" key={a.id}><div className="grow"><div className="eyebrow">{team?.name||'Team'} · {a.status}</div><h3>{a.title}</h3><div className="muted">Due {fmtDue(a.due_at)} · {done} completed</div><div className="progress"><i style={{width:`${total?Math.round(done/total*100):0}%`}}/></div></div><div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+  <button className="secondary" onClick={() => onOpen(a.id)}>
+    {selected === a.id ? 'Refresh' : 'View'}
+  </button>
+  <AssignmentActions assignment={a} />
+</div></div>
       })}
     </section>
    {completed.length > 0 && (
@@ -523,4 +528,207 @@ function PlayerDashboard({profile,assignments,submissions,onRefresh,setMessage}:
  async function submit(){if(!supabase||!open)return;setBusy(true);let sub=submissions.find(s=>s.assignment_id===open.id&&s.player_id===profile.id);if(!sub){const {data,error}=await supabase.from('submissions').insert({assignment_id:open.id,player_id:profile.id,status:'in_progress',started_at:new Date().toISOString()}).select().single();if(error||!data){setMessage(error?.message||'Could not start submission.');setBusy(false);return}sub=data as Submission}for(const q of qs){await supabase.from('answers').delete().eq('submission_id',sub.id).eq('question_id',q.id);await supabase.from('answers').insert({submission_id:sub.id,question_id:q.id,answer_text:answers[q.id]||''})}for(const t of ts){await supabase.from('task_completions').upsert({submission_id:sub.id,task_id:t.id,completed:Boolean(done[t.id])})}const {error}=await supabase.from('submissions').update({status:'submitted',submitted_at:new Date().toISOString()}).eq('id',sub.id);if(error)setMessage(error.message);else{setMessage('Assignment submitted. Nice work!');setOpen(null);onRefresh()}setBusy(false)}
  if(open)return <section className="card playerAssignment"><button className="linkButton left" onClick={()=>setOpen(null)}>← Back to assignments</button><div className="eyebrow">WATCH · THINK · TRAIN · SUBMIT</div><h1>{open.title}</h1><p>{open.instructions}</p>{open.video_url&&<a className="video" href={open.video_url} target="_blank" rel="noreferrer">▶ Open Coach Video</a>}<div className="steps"><span>1 WATCH</span><span>2 THINK</span><span>3 TRAIN</span><span>4 SUBMIT</span></div>{qs.map((q,i)=><label className="question" key={q.id}><b>Question {i+1}</b><span>{q.prompt}</span><textarea value={answers[q.id]||''} onChange={e=>setAnswers({...answers,[q.id]:e.target.value})}/></label>)}{ts.map(t=><label className="task" key={t.id}><input type="checkbox" checked={Boolean(done[t.id])} onChange={e=>setDone({...done,[t.id]:e.target.checked})}/><span><b>Training Task</b><br/>{t.description}</span></label>)}<button className="primary" onClick={submit} disabled={busy}>{busy?'Submitting…':'Submit Assignment'}</button></section>
  return <><div className="welcome"><div className="eyebrow">PLAYER DASHBOARD</div><h1>Welcome, {profile.display_name}</h1><p className="muted">Watch. Think. Train. Develop.</p></div><section className="card"><h2>Your assignments</h2>{assignments.length===0?<Empty text="No published assignments are assigned to your team yet."/>:assignments.map(a=>{const s=submissions.find(x=>x.assignment_id===a.id&&x.player_id===profile.id);return <button className="assignmentButton" key={a.id} onClick={()=>openA(a)}><div><b>{a.title}</b><small>Due {fmtDue(a.due_at)}</small></div><span className={`pill ${s?.status==='submitted'||s?.status==='reviewed'?'success':''}`}>{s?.status?.replace('_',' ')||'Not started'}</span></button>})}</section></>
+}
+function AssignmentActions({ assignment }: { assignment: Assignment }) {
+  const [editing, setEditing] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  function localDue(value: string | null) {
+    if (!value) return ''
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ''
+    return new Date(
+      date.getTime() - date.getTimezoneOffset() * 60000
+    ).toISOString().slice(0, 16)
+  }
+
+  async function checkOwner() {
+    if (!supabase) throw new Error('Database connection unavailable.')
+    const { data, error } = await supabase.auth.getUser()
+    if (error) throw new Error(error.message)
+    if (!data.user || data.user.id !== assignment.created_by) {
+      throw new Error('Only the coach who created this assignment can change it.')
+    }
+    return data.user.id
+  }
+
+  async function save(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!supabase || busy) return
+
+    const fd = new FormData(e.currentTarget)
+    const title = String(fd.get('title') || '').trim()
+    if (!title) {
+      setError('Enter an assignment title.')
+      return
+    }
+
+    setBusy(true)
+    setError('')
+
+    try {
+      const userId = await checkOwner()
+      const due = String(fd.get('due_at') || '')
+
+      const { data, error } = await supabase
+        .from('assignments')
+        .update({
+          title,
+          instructions: String(fd.get('instructions') || ''),
+          video_url: String(fd.get('video_url') || '').trim() || null,
+          due_at: due ? new Date(due).toISOString() : null,
+          status: String(fd.get('status') || assignment.status),
+        })
+        .eq('id', assignment.id)
+        .eq('created_by', userId)
+        .select('id')
+
+      if (error) throw new Error(error.message)
+      if (data?.length !== 1) {
+        throw new Error('Nothing was saved. Check assignment update permissions.')
+      }
+
+      window.location.reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save assignment.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove() {
+    if (!supabase || busy) return
+    if (!window.confirm(
+      `Permanently delete "${assignment.title}"? This cannot be undone.`
+    )) return
+
+    setBusy(true)
+    setError('')
+
+    try {
+      const userId = await checkOwner()
+
+      const [direct, managed] = await Promise.all([
+        supabase.from('submissions')
+          .select('id', { count: 'exact', head: true })
+          .eq('assignment_id', assignment.id),
+        supabase.from('parent_managed_submissions')
+          .select('id', { count: 'exact', head: true })
+          .eq('assignment_id', assignment.id),
+      ])
+
+      if (direct.error) throw new Error(direct.error.message)
+      if (managed.error) throw new Error(managed.error.message)
+      if (direct.count === null || managed.count === null) {
+        throw new Error('Could not check player progress. Please try again.')
+      }
+      if (direct.count > 0 || managed.count > 0) {
+        throw new Error(
+          'This assignment has player progress. Use Edit and choose Archived to keep their work.'
+        )
+      }
+
+      const { data, error } = await supabase
+        .from('assignments')
+        .delete()
+        .eq('id', assignment.id)
+        .eq('created_by', userId)
+        .select('id')
+
+      if (error) {
+        throw new Error(
+          `Delete failed: ${error.message}. You can archive the assignment instead.`
+        )
+      }
+      if (data?.length !== 1) {
+        throw new Error('Nothing was deleted. Check assignment delete permissions.')
+      }
+
+      window.location.reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete assignment.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="secondary"
+          disabled={busy}
+          onClick={() => {
+            setEditing(current => !current)
+            setError('')
+          }}
+        >
+          {editing ? 'Cancel' : 'Edit'}
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          style={{ color: '#b91c1c' }}
+          disabled={busy}
+          onClick={remove}
+        >
+          Delete
+        </button>
+      </div>
+
+      {error && <p className="notice" role="alert">{error}</p>}
+
+      {editing && (
+        <form className="form" onSubmit={save} style={{ marginTop: 12 }}>
+          <fieldset disabled={busy} style={{ border: 0, padding: 0 }}>
+            <div className="form">
+              <label>
+                Title
+                <input name="title" required defaultValue={assignment.title} />
+              </label>
+              <label>
+                Instructions
+                <textarea
+                  name="instructions"
+                  defaultValue={assignment.instructions || ''}
+                />
+              </label>
+              <label>
+                Video link
+                <input
+                  name="video_url"
+                  type="url"
+                  defaultValue={assignment.video_url || ''}
+                />
+              </label>
+              <label>
+                Due date & time
+                <input
+                  name="due_at"
+                  type="datetime-local"
+                  defaultValue={localDue(assignment.due_at)}
+                />
+              </label>
+              <label>
+                Status
+                <select name="status" defaultValue={assignment.status}>
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </label>
+              <p className="muted small">
+                Archiving keeps the assignment and player work.
+              </p>
+              <button className="primary" type="submit">
+                {busy ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      )}
+    </div>
+  )
 }
