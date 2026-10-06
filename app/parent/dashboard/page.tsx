@@ -292,6 +292,14 @@ setSavingAssignmentId("");
     </header>
 
     <main className="wrap">
+      <nav className="tabs" aria-label="Parent dashboard navigation">
+  <a href="/parent/dashboard" aria-current="page">
+    Assignments
+  </a>
+  <a href="/parent/mindset">
+    Mindset &amp; Confidence
+  </a>
+</nav>
       <div className="welcome parentWelcome">
   <div className="eyebrow">PARENT DASHBOARD</div>
   <h1>Welcome, {parentName || "Parent"}</h1>
