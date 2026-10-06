@@ -594,7 +594,12 @@ function AssignmentActions({ assignment }: { assignment: Assignment }) {
       setError('Enter an assignment title.')
       return
     }
-
+if (editQuestions.some(question =>
+  !String(fd.get(`question_${question.id}`) || '').trim()
+)) {
+  setError('Questions cannot be blank.')
+  return
+}
     setBusy(true)
     setError('')
 
@@ -620,7 +625,30 @@ function AssignmentActions({ assignment }: { assignment: Assignment }) {
         throw new Error('Nothing was saved. Check assignment update permissions.')
       }
 
-      window.location.reload()
+      for (const question of editQuestions) {
+  const prompt = String(
+    fd.get(`question_${question.id}`) || ''
+  ).trim()
+
+  if (prompt === question.prompt) continue
+
+  const { data: updated, error: questionError } = await supabase
+    .from('questions')
+    .update({ prompt })
+    .eq('id', question.id)
+    .eq('assignment_id', assignment.id)
+    .select('id')
+
+  if (questionError || updated?.length !== 1) {
+    throw new Error(
+      `Assignment details saved, but a question could not save: ${
+        questionError?.message || 'Check question update permissions.'
+      } Earlier question changes may have saved. Reopen Edit to check.`
+    )
+  }
+}
+
+window.location.reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save assignment.')
     } finally {
@@ -691,10 +719,7 @@ function AssignmentActions({ assignment }: { assignment: Assignment }) {
           type="button"
           className="secondary"
           disabled={busy}
-          onClick={() => {
-            setEditing(current => !current)
-            setError('')
-          }}
+          onClick={toggleEditor}
         >
           {editing ? 'Cancel' : 'Edit'}
         </button>
@@ -726,6 +751,16 @@ function AssignmentActions({ assignment }: { assignment: Assignment }) {
                   defaultValue={assignment.instructions || ''}
                 />
               </label>
+              {editQuestions.map((question, index) => (
+  <label key={question.id}>
+    Question {index + 1}
+    <textarea
+      name={`question_${question.id}`}
+      defaultValue={question.prompt}
+      required
+    />
+  </label>
+))}
               <label>
                 Video link
                 <input
