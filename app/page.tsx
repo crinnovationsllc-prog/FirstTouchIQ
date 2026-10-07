@@ -171,7 +171,7 @@ if (recoveryRef.current) {
     <main className="wrap">
       {message && <div className="notice">{message}</div>}
       {isCoach ? <>
-        <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/approvals">Player requests</a></nav>
+        <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/approvals">Player requests</a><a href="/coach/mindset">Mindset &amp; Confidence</a></nav>
         {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} markManagedReviewed={markManagedReviewed} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} allQuestions={allQuestions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
         {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} assignments={assignments} managedSubmissions={managedSubmissions}
