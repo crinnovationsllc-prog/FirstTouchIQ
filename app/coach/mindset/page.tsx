@@ -90,6 +90,10 @@ export default function CoachMindsetPage() {
 
         }
 
+        const { data: administrator, error: accessError } = await supabase.rpc("is_app_administrator");
+        if (accessError) throw accessError;
+        if (!administrator) { window.location.replace("/parent/mindset"); return; }
+
         const { data, error } = await supabase
 
           .from("mindset_resources")

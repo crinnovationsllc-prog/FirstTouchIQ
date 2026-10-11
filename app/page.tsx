@@ -1,14 +1,15 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from '../lib/supabase'
+import { playerTeamIds, type TeamMembership } from '../lib/team-memberships'
 
 type Profile = { id: string; role: 'coach' | 'player' | 'parent'; display_name: string; username: string | null; active: boolean }
 type Team = { id: string; name: string; created_by: string; active: boolean }
 type Assignment = { id: string; team_id: string; created_by: string; title: string; instructions: string | null; video_url: string | null; due_at: string | null; status: 'draft' | 'published' | 'archived'; created_at: string }
 type Submission = { id: string; assignment_id: string; player_id: string; status: 'not_started' | 'in_progress' | 'submitted' | 'reviewed'; submitted_at: string | null }
-type ManagedPlayer = { id: string; display_name: string; team_id: string }
+type ManagedPlayer = { id: string; display_name: string; team_id: string; team_ids: string[] }
 type ManagedSubmission = { id: string; assignment_id: string; managed_player_id: string; status: string; answers: Record<string,string> | null }
 type Question = { id: string; assignment_id: string; position: number; prompt: string; type: string; required: boolean }
 type Task = { id: string; assignment_id: string; position: number; description: string; required: boolean }
@@ -40,13 +41,13 @@ export default function Home() {
   async function markManagedReviewed(submissionId: string) {
   if (!supabase) return
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('parent_managed_submissions')
     .update({ status: 'reviewed' })
-    .eq('id', submissionId)
+    .eq('id', submissionId).select('id').single()
 
-  if (error) {
-    setMessage(`Review error: ${error.message}`)
+  if (error || !data) {
+    setMessage(`Review error: ${error?.message || "No submission updated"}`)
     return
   }
 
@@ -66,28 +67,35 @@ export default function Home() {
     if (pErr) setMessage(pErr.message)
     const current = p as Profile | null
     setProfile(current)
-    if (!current) { setLoading(false); return }
+    if (!current || !current.active) { setLoading(false); return }
     if (current.role === 'parent') { window.location.assign('/parent/dashboard'); return }
 
-    const [{data:t},{data:a},{data:s}] = await Promise.all([
+    const baseResults = await Promise.all([
       supabase.from('teams').select('*').eq('active', true).order('created_at'),
       supabase.from('assignments').select('*').order('created_at', {ascending:false}),
       supabase.from('submissions').select('*')
     ])
+    const baseError = baseResults.find(result => result.error)?.error
+    if (baseError) { setMessage(baseError.message); setLoading(false); return }
+    const [{data:t},{data:a},{data:s}] = baseResults
     setTeams((t || []) as Team[])
     setAssignments((a || []) as Assignment[])
     setSubmissions((s || []) as Submission[])
 
     if (current.role === 'coach') {
-      const [{ data: people }, { data: managed }, { data: progress }, { data: allQuestionData }, { data: allTaskData }] = await Promise.all([
+      const coachResults = await Promise.all([
         supabase.from('profiles').select('*').eq('active', true).order('display_name'),
         supabase.from('parent_managed_players').select('id,display_name,team_id'),
         supabase.from('parent_managed_submissions').select('id,assignment_id,managed_player_id,status,answers'),
         supabase.from('questions').select('*').order('position'),
-        supabase.from('assignment_tasks').select('*').order('position')
+        supabase.from('assignment_tasks').select('*').order('position'),
+        supabase.from('player_team_memberships').select('managed_player_id,team_id')
       ])
+      const coachError = coachResults.find(result => result.error)?.error
+      if (coachError) { setMessage(coachError.message); setLoading(false); return }
+      const [{ data: people }, { data: managed }, { data: progress }, { data: allQuestionData }, { data: allTaskData }, { data: membershipData }] = coachResults
       setProfiles((people || []) as Profile[])
-      setManagedPlayers((managed || []) as ManagedPlayer[])
+      setManagedPlayers((managed || []).map(player => ({...player, team_ids: playerTeamIds(player, (membershipData || []) as TeamMembership[]).filter(id => (t || []).some(team => team.id === id))})))
       setManagedSubmissions((progress || []) as ManagedSubmission[])
       setAllQuestions((allQuestionData || []) as Question[])
       setAllTasks((allTaskData || []) as Task[])
@@ -157,10 +165,11 @@ if (recoveryRef.current) {
   if (!session) return <AuthScreen mode={authMode} setMode={setAuthMode} message={message} setMessage={setMessage} />
   if (!profile) return <ProfileMissing email={session.user.email || ''} onRetry={() => loadData(session.user.id)} />
 
+  if (!profile.active) return <div className="center"><p>Your account is inactive. Contact Coach Christian.</p><button onClick={() => supabase?.auth.signOut()}>Sign out</button></div>
   if (profile.role === 'parent') return <div className="center"><div className="spinner"/><p>Opening parent dashboard…</p></div>
   const isCoach = profile.role === 'coach'
   const playerCount = profiles.filter(p => p.role === 'player').length + managedPlayers.length
-  const submittedCount = submissions.filter(s => s.status === 'submitted').length + managedSubmissions.filter(s => s.status === 'completed' || s.status === 'submitted').length
+  const submittedCount = submissions.filter(s => ['submitted', 'reviewed'].includes(s.status)).length + managedSubmissions.filter(s => ['completed', 'submitted', 'reviewed'].includes(s.status)).length
   const reviewedCount = submissions.filter(s => s.status === 'reviewed').length + managedSubmissions.filter(s => s.status === 'reviewed').length
 
   return <>
@@ -171,7 +180,7 @@ if (recoveryRef.current) {
     <main className="wrap">
       {message && <div className="notice">{message}</div>}
       {isCoach ? <>
-        <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/approvals">Player requests</a><a href="/coach/mindset">Mindset &amp; Confidence</a></nav>
+        <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/progress">Progress</a><a href="/coach/approvals">Player requests</a><a href="/coach/mindset">Mindset &amp; Confidence</a></nav>
         {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} markManagedReviewed={markManagedReviewed} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} allQuestions={allQuestions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
         {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} assignments={assignments} managedSubmissions={managedSubmissions}
@@ -308,16 +317,41 @@ function Empty({text}:{text:string}){return <div className="empty">{text}</div>}
 function CreateAssignment({userId,teams,onCreated,setMessage}:{userId:string;teams:Team[];onCreated:()=>void;setMessage:(m:string)=>void}){
  const [busy,setBusy]=useState(false)
  const [questionCount, setQuestionCount] = useState(2)
- async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!supabase)return;setBusy(true);setMessage('');const fd=new FormData(e.currentTarget);const teamId=String(fd.get('team_id')||'');if(!teamId){setMessage('Create a team before publishing an assignment.');setBusy(false);return}const due=String(fd.get('due_at')||'');const {data:a,error}=await supabase.from('assignments').insert({team_id:teamId,created_by:userId,title:String(fd.get('title')),instructions:String(fd.get('instructions')||''),video_url:String(fd.get('video_url')||''),due_at:due?new Date(due).toISOString():null,status:'published',published_at:new Date().toISOString()}).select().single();if(error||!a){setMessage(error?.message||'Could not create assignment.');setBusy(false);return}const qs = Array.from(
-  { length: questionCount },
-  (_, i) => String(fd.get(`q${i + 1}`) || '')
-).filter(Boolean);if(qs.length){const {error:qErr}=await supabase.from('questions').insert(qs.map((prompt,i)=>({assignment_id:a.id,position:i,prompt,type:'short_answer',required:true})));if(qErr)setMessage(qErr.message)}const task=String(fd.get('task')||'');if(task){ const { error: taskError } = await supabase
-  .from('assignment_tasks')
-  .insert({ assignment_id: a.id, position: 0, description: task });
-
-if (taskError) {
-  alert('Training task error: ' + taskError.message);
-};}setBusy(false);onCreated()}
+ async function submit(e: FormEvent<HTMLFormElement>) {
+   e.preventDefault();
+   if (!supabase || busy) return;
+   const fd = new FormData(e.currentTarget);
+   const teamId = String(fd.get('team_id') || '');
+   if (!teamId) { setMessage('Select a team first.'); return; }
+   setBusy(true); setMessage('');
+   let draftId: string | undefined;
+   try {
+     const due = String(fd.get('due_at') || '');
+     const { data: assignment, error } = await supabase.from('assignments').insert({
+       team_id: teamId, created_by: userId, title: String(fd.get('title') || '').trim(),
+       instructions: String(fd.get('instructions') || ''), video_url: String(fd.get('video_url') || ''),
+       due_at: due ? new Date(due).toISOString() : null, status: 'draft',
+     }).select('id').single();
+     if (error || !assignment) throw new Error(error?.message || 'Could not create assignment.');
+     draftId = assignment.id;
+     const prompts = Array.from({ length: questionCount }, (_, i) => String(fd.get(`q${i + 1}`) || '').trim()).filter(Boolean);
+     if (prompts.length) {
+       const { error } = await supabase.from('questions').insert(prompts.map((prompt, position) => ({ assignment_id: draftId, position, prompt, type: 'short_answer', required: true })));
+       if (error) throw error;
+     }
+     const task = String(fd.get('task') || '').trim();
+     if (task) {
+       const { error } = await supabase.from('assignment_tasks').insert({ assignment_id: draftId, position: 0, description: task });
+       if (error) throw error;
+     }
+     const { error: publishError } = await supabase.from('assignments').update({ status: 'published', published_at: new Date().toISOString() }).eq('id', draftId).select('id').single();
+     if (publishError) throw publishError;
+     onCreated();
+   } catch (error) {
+     const detail = error instanceof Error ? error.message : 'Could not save all assignment content.';
+     setMessage(`${detail}${draftId ? ' The assignment remains a draft; review it before publishing.' : ''}`);
+   } finally { setBusy(false); }
+ }
  return <section className="card"><h2>Create Assignment</h2><p className="muted">Build a Watch → Think → Train activity for one team.</p>{teams.length===0&&<TeamCreator userId={userId} onCreated={onCreated} setMessage={setMessage}/>}<form className="form twoCol" onSubmit={submit}><label className="full">Title<input name="title" required placeholder="Scanning Before Receiving"/></label><label>Team<select name="team_id" required defaultValue=""><option value="" disabled>Select team</option>{teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><label>Due date & time<input name="due_at" type="datetime-local"/></label><label className="full">Coach video link<input name="video_url" type="url" placeholder="YouTube or Vimeo URL"/></label><label className="full">Instructions<textarea name="instructions" placeholder="Watch the video, answer the questions, then complete the training task."/></label>{Array.from({ length: questionCount }, (_, i) => (
   <label className="full" key={i}>
     Question {i + 1}
@@ -433,14 +467,14 @@ function Players({
       <h2>{selectedManagedPlayer.display_name}</h2>
 
       <p className="muted">
-        {teams.find((t) => t.id === selectedManagedPlayer.team_id)?.name || 'Player'}
+        {teams.filter(t => selectedManagedPlayer.team_ids.includes(t.id)).map(t => t.name).join(' · ') || 'Player'}
       </p>
 
       <div>
   <h3>Assignment History</h3>
 
   {assignments
-    .filter((a) => a.team_id === selectedManagedPlayer.team_id)
+    .filter((a) => selectedManagedPlayer.team_ids.includes(a.team_id))
     .map((a) => {
       const submission = managedSubmissions.find(
         (s) =>
@@ -509,7 +543,7 @@ function Players({
           <div className="grow">
             <b>{p.display_name}</b>
             <div className="muted">
-              {teams.find((t) => t.id === p.team_id)?.name || 'Parent-managed player'}
+              {teams.filter(t => p.team_ids.includes(t.id)).map(t => t.name).join(' · ') || 'Parent-managed player'}
             </div>
           </div>
         </div>
@@ -543,12 +577,12 @@ function AssignmentActions({ assignment }: { assignment: Assignment }) {
     ).toISOString().slice(0, 16)
   }
 
-  async function checkOwner() {
+  async function checkSignedIn() {
     if (!supabase) throw new Error('Database connection unavailable.')
     const { data, error } = await supabase.auth.getUser()
     if (error) throw new Error(error.message)
-    if (!data.user || data.user.id !== assignment.created_by) {
-      throw new Error('Only the coach who created this assignment can change it.')
+    if (!data.user) {
+      throw new Error('Sign in with your coach account.')
     }
     return data.user.id
   }
@@ -564,7 +598,7 @@ function AssignmentActions({ assignment }: { assignment: Assignment }) {
   setBusy(true)
 
   try {
-    await checkOwner()
+    await checkSignedIn()
 
     const { data, error } = await supabase
       .from('questions')
@@ -604,7 +638,7 @@ if (editQuestions.some(question =>
     setError('')
 
     try {
-      const userId = await checkOwner()
+      await checkSignedIn()
       const due = String(fd.get('due_at') || '')
 
       const { data, error } = await supabase
@@ -617,7 +651,6 @@ if (editQuestions.some(question =>
           status: String(fd.get('status') || assignment.status),
         })
         .eq('id', assignment.id)
-        .eq('created_by', userId)
         .select('id')
 
       if (error) throw new Error(error.message)
@@ -666,7 +699,7 @@ window.location.reload()
     setError('')
 
     try {
-      const userId = await checkOwner()
+      await checkSignedIn()
 
       const [direct, managed] = await Promise.all([
         supabase.from('submissions')
@@ -692,7 +725,6 @@ window.location.reload()
         .from('assignments')
         .delete()
         .eq('id', assignment.id)
-        .eq('created_by', userId)
         .select('id')
 
       if (error) {
