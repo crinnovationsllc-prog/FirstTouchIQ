@@ -11,6 +11,9 @@ type Request = {
 };
 
 export default function ParentRequestPage() {
+  const [players, setPlayers] = useState<{id: string; display_name: string}[]>([]);
+  const [existingPlayerId, setExistingPlayerId] = useState("");
+  const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [signedIn, setSignedIn] = useState(false);
@@ -37,6 +40,9 @@ if (teamError) setMessage(`Team loading error: ${teamError.message}`);
       .order("created_at", { ascending: false });
 
     setRequests(requestData || []);
+    const { data: children, error: playerError } = await supabase.from("parent_managed_players").select("id,display_name").order("display_name");
+    if (playerError) setMessage(playerError.message);
+    setPlayers(children || []);
   }
 
   useEffect(() => {
@@ -69,7 +75,7 @@ if (teamError) setMessage(`Team loading error: ${teamError.message}`);
   }
 
   async function submitRequest() {
-    if (!supabase) return;
+    if (!supabase || busy) return;
 
     if (!playerName.trim() || !teamId || !consent) {
       setMessage("Complete all fields and confirm consent.");
@@ -83,19 +89,24 @@ if (teamError) setMessage(`Team loading error: ${teamError.message}`);
       return;
     }
 
+    setBusy(true);
     const { error } = await supabase
       .from("player_registration_requests")
       .insert({
         parent_id: data.user.id,
         team_id: teamId,
         player_name: playerName.trim(),
+        managed_player_id: existingPlayerId || null,
       });
 
     if (error) {
+      setBusy(false);
       setMessage(error.message);
       return;
     }
 
+    setBusy(false);
+    setExistingPlayerId("");
     setMessage("Registration request submitted for coach approval.");
     setPlayerName("");
     setTeamId("");
@@ -130,7 +141,18 @@ if (teamError) setMessage(`Team loading error: ${teamError.message}`);
         <>
           <h2>Request Player Registration</h2>
 
+          <label htmlFor="existing-player">Player</label>
+          <select id="existing-player" value={existingPlayerId} onChange={e => {
+            setExistingPlayerId(e.target.value);
+            setPlayerName(players.find(p => p.id === e.target.value)?.display_name || "");
+          }}>
+            <option value="">Register a new player</option>
+            {players.map(player => <option key={player.id} value={player.id}>{player.display_name} — add another team</option>)}
+          </select>
+          <p>For a player already registered, select their existing profile to keep all assignments and progress.</p>
           <input
+            disabled={Boolean(existingPlayerId)}
+            aria-label="Player name"
             placeholder="Player name"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
@@ -158,7 +180,7 @@ if (teamError) setMessage(`Team loading error: ${teamError.message}`);
             to submitting this registration request.
           </label>
 
-          <button onClick={submitRequest}>
+          <button disabled={busy} onClick={submitRequest}>
             Submit Registration Request
           </button>
 
@@ -171,7 +193,8 @@ if (teamError) setMessage(`Team loading error: ${teamError.message}`);
         </>
       )}
 
-      <p>{message}</p>
+      <p role="status">{message}</p>
+      <a href="/parent/dashboard">Back to parent dashboard</a>
     </main>
   );
 }

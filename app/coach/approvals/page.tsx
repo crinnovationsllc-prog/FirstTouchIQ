@@ -41,7 +41,7 @@ export default function CoachApprovalsPage() {
     const { data: teams, error: teamError } = await supabase
       .from("teams")
       .select("id,name")
-      .eq("created_by", auth.user.id);
+      .eq("active", true);
     if (teamError) {
       setMessage(teamError.message);
       return;
