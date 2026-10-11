@@ -56,6 +56,11 @@ export default function CoachProgress() {
   }
   const completed = submissions.filter(s => ["completed", "submitted", "reviewed"].includes(s.status));
   return <main className="wrap">
+    <nav aria-label="Progress page navigation" style={{ marginBottom: 20 }}>
+      <a href="/" className="primary" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+        ← Back to Dashboard
+      </a>
+    </nav>
     <h1>Coach Progress Dashboard</h1>
     <p>Review assignment progress for your teams. Players keep one account across teams.</p>
     {message && <p role="status">{message}</p>}
