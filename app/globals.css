@@ -322,3 +322,26 @@
     width:100%;
   }
 }
+
+
+/* Coach Players tab — compact, mobile-friendly assignment review */
+.reviewToolbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
+.reviewToolbar label{display:grid;gap:6px;color:var(--muted);font-size:12px;font-weight:750}
+.reviewToolbar input,.reviewToolbar select{width:100%;min-width:0;border:1px solid #d0d5dd;border-radius:10px;padding:11px 12px;background:#fff;color:var(--ink)}
+.reviewToolbar input:focus,.reviewToolbar select:focus{outline:2px solid #84adff;outline-offset:1px}
+.reviewSearch{grid-column:1/-1}
+.reviewPlayerRow,.reviewAssignmentRow{display:flex;align-items:center;gap:12px;width:100%;border:0;border-top:1px solid var(--line);padding:15px 4px;background:#fff;text-align:left;cursor:pointer;color:var(--ink)}
+.reviewPlayerRow:hover,.reviewAssignmentRow:hover{background:#f8faff}
+.reviewPlayerRow:focus-visible,.reviewAssignmentRow:focus-visible{outline:2px solid var(--royal);outline-offset:-2px}
+.reviewPlayerRow small,.reviewAssignmentRow small{display:block;color:var(--muted);margin-top:4px;line-height:1.5}
+.reviewPlayerRow .pill,.reviewAssignmentRow .pill{white-space:nowrap}
+.reviewDetailHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.reviewDetailHeader h2{margin:6px 0}
+.reviewAnswer{border:1px solid var(--line);border-radius:12px;padding:15px;margin:11px 0;overflow-wrap:anywhere}
+.reviewAnswer p{white-space:pre-wrap;line-height:1.6;margin:9px 0 0}
+.reviewTasks{margin-top:20px}
+.reviewActions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:22px}
+.reviewNextPlayer{margin-top:18px}
+.reviewSuccess{padding:10px 12px;border-radius:10px;background:#ecfdf3;color:#067647}
+@media(max-width:760px){.reviewToolbar{grid-template-columns:1fr 1fr}.reviewPlayerRow,.reviewAssignmentRow{gap:9px}.reviewPlayerRow .avatar{flex:0 0 38px}.reviewDetailHeader{align-items:center}}
+@media(max-width:460px){.reviewToolbar{grid-template-columns:1fr}.reviewSearch{grid-column:auto}.reviewPlayerRow .pill,.reviewAssignmentRow .pill{font-size:10px;padding:5px 7px}.reviewPlayerRow .grow,.reviewAssignmentRow .grow{min-width:0}}
