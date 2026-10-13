@@ -202,7 +202,7 @@ if (recoveryRef.current) {
         {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} markManagedReviewed={markManagedReviewed} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} allQuestions={allQuestions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
         {tab === 'players' && <PlayersReview teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} assignments={assignments} managedSubmissions={managedSubmissions} allQuestions={allQuestions} allTasks={allTasks} directAnswers={directAnswers} directMemberships={directMemberships} onMarkManagedReviewed={markManagedReviewed} onMarkDirectReviewed={markDirectReviewed} />}
-      </> : <PlayerDashboard profile={profile} assignments={assignments.filter(a=>a.status==='published')} submissions={submissions} onRefresh={()=>loadData(profile.id)} setMessage={setMessage} />}
+      </> : <><nav className="tabs" aria-label="Player navigation"><a href="/" aria-current="page">Assignments</a><a href="/parent/mindset">Mindset &amp; Confidence</a></nav><PlayerDashboard profile={profile} assignments={assignments.filter(a=>a.status==='published')} submissions={submissions} onRefresh={()=>loadData(profile.id)} setMessage={setMessage} /></>}
     </main>
   </>
 }

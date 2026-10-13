@@ -209,63 +209,65 @@ export default function MindsetPage() {
           </button>
         )}
 
+
         {ready && (
-          <section className="card section">
-            <h2>Your mindset reference</h2>
-            <p className="muted">
-              Return here before training, before games, or
-              whenever you need a confidence reset.
-            </p>
-
-            {resources.length === 0 ? (
-              <div className="empty">
-                No curriculum resources have been published yet.
+          <>
+            <section className="card section" id="video-library">
+              <div className="sectionHead">
+                <div>
+                  <div className="eyebrow">WATCH · LEARN · GROW</div>
+                  <h2>Mindset &amp; Confidence Video Library</h2>
+                  <p className="muted">Videos from Coach Christian to help build self-belief, composure, and a strong mindset.</p>
+                </div>
+                <span className="pill">{resources.filter(r => r.resource_type !== "pdf").length} videos</span>
               </div>
-            ) : (
-              resources.map((resource) => (
-                <article
-                  key={resource.id}
-                  style={{
-                    padding: "20px 0",
-                    borderTop: "1px solid #e2e8f0",
-                  }}
-                >
-                  <div className="eyebrow">
-                    {resource.resource_type === "pdf"
-                      ? "PDF GUIDE"
-                      : "VIDEO RESOURCE"}
+              {resources.filter(r => r.resource_type !== "pdf").length === 0 ? (
+                <div className="empty">No mindset videos have been added yet. Check back after Coach Christian publishes one.</div>
+              ) : (
+                <div className="mindsetVideoGrid">
+                  {resources.filter(r => r.resource_type !== "pdf").map(resource => (
+                    <article className="mindsetVideoCard" key={resource.id}>
+                      <div className="mindsetVideoArt" aria-hidden="true"><span>▶</span></div>
+                      <div className="mindsetVideoBody">
+                        <span className="eyebrow">{resource.resource_type === "link" ? "VIDEO LINK" : "VIDEO"}</span>
+                        <h3>{resource.title}</h3>
+                        {resource.description && <p>{resource.description}</p>}
+                        <button type="button" className="primary" disabled={Boolean(openingId)} onClick={() => openResource(resource)}>
+                          {openingId === resource.id ? "Opening..." : "▶ Watch video"}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+            <section className="card section" id="pdf-guides">
+              <div className="sectionHead">
+                <div>
+                  <h2>PDF Guides &amp; Exercises</h2>
+                  <p className="muted">Written exercises and confidence-building resources you can revisit anytime.</p>
+                </div>
+                <span className="pill">{resources.filter(r => r.resource_type === "pdf").length} guides</span>
+              </div>
+              {resources.filter(r => r.resource_type === "pdf").length === 0 ? (
+                <div className="empty">No PDF guides have been published yet.</div>
+              ) : resources.filter(r => r.resource_type === "pdf").map(resource => (
+                <article key={resource.id} className="mindsetGuideRow">
+                  <div className="mindsetResourceIcon" aria-hidden="true">▤</div>
+                  <div className="grow">
+                    <h3>{resource.title}</h3>
+                    {resource.description && <p>{resource.description}</p>}
+                    <button type="button" className="secondary" disabled={Boolean(openingId)} onClick={() => openResource(resource)}>
+                      {openingId === resource.id ? "Opening..." : "Open PDF"}
+                    </button>
                   </div>
-
-                  <h3>{resource.title}</h3>
-
-                  {resource.description && (
-                    <p style={{ whiteSpace: "pre-wrap" }}>
-                      {resource.description}
-                    </p>
-                  )}
-
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={Boolean(openingId)}
-                    onClick={() => openResource(resource)}
-                  >
-                    {openingId === resource.id
-                      ? "Opening..."
-                      : resource.resource_type === "pdf"
-                        ? "Open PDF"
-                        : "Watch video"}
-                  </button>
                 </article>
-              ))
-            )}
-
-            <p className="muted small">
-              After viewing a resource, use your browser&apos;s
-              Back button to return here.
-            </p>
-          </section>
+              ))}
+              <p className="muted small">After opening a resource, use your browser&apos;s Back button to return to the library.</p>
+            </section>
+          </>
         )}
+
       </main>
     </>
   );
