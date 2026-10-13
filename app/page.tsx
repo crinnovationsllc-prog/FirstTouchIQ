@@ -4,13 +4,16 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { playerTeamIds, type TeamMembership } from '../lib/team-memberships'
+import PlayersReview from './components/PlayersReview'
 
 type Profile = { id: string; role: 'coach' | 'player' | 'parent'; display_name: string; username: string | null; active: boolean }
 type Team = { id: string; name: string; created_by: string; active: boolean }
 type Assignment = { id: string; team_id: string; created_by: string; title: string; instructions: string | null; video_url: string | null; due_at: string | null; status: 'draft' | 'published' | 'archived'; created_at: string }
 type Submission = { id: string; assignment_id: string; player_id: string; status: 'not_started' | 'in_progress' | 'submitted' | 'reviewed'; submitted_at: string | null }
 type ManagedPlayer = { id: string; display_name: string; team_id: string; team_ids: string[] }
-type ManagedSubmission = { id: string; assignment_id: string; managed_player_id: string; status: string; answers: Record<string,string> | null }
+type ManagedSubmission = { id: string; assignment_id: string; managed_player_id: string; status: string; answers: Record<string,string> | null; training_completed?: boolean | null }
+type DirectAnswer = { submission_id: string; question_id: string; answer_text: string }
+type TeamMember = { player_id: string; team_id: string }
 type Question = { id: string; assignment_id: string; position: number; prompt: string; type: string; required: boolean }
 type Task = { id: string; assignment_id: string; position: number; description: string; required: boolean }
 
@@ -31,6 +34,8 @@ export default function Home() {
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [managedPlayers, setManagedPlayers] = useState<ManagedPlayer[]>([])
   const [managedSubmissions, setManagedSubmissions] = useState<ManagedSubmission[]>([])
+  const [directAnswers, setDirectAnswers] = useState<DirectAnswer[]>([])
+  const [directMemberships, setDirectMemberships] = useState<TeamMember[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [allQuestions, setAllQuestions] = useState<Question[]>([])
@@ -38,27 +43,36 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null)
 
-  async function markManagedReviewed(submissionId: string) {
-  if (!supabase) return
-
-  const { data, error } = await supabase
-    .from('parent_managed_submissions')
-    .update({ status: 'reviewed' })
-    .eq('id', submissionId).select('id').single()
-
-  if (error || !data) {
-    setMessage(`Review error: ${error?.message || "No submission updated"}`)
-    return
+  async function markManagedReviewed(submissionId: string): Promise<boolean> {
+    if (!supabase) return false
+    const existing = managedSubmissions.find(s => s.id === submissionId)
+    if (!existing || !['completed', 'submitted'].includes(existing.status)) return false
+    const { data, error } = await supabase.from('parent_managed_submissions')
+      .update({ status: 'reviewed' })
+      .eq('id', submissionId).eq('status', existing.status).select('id').maybeSingle()
+    if (error || !data) {
+      setMessage('Review error: ' + (error?.message || 'No submission updated'))
+      return false
+    }
+    setManagedSubmissions(current => current.map(s => s.id === submissionId ? { ...s, status: 'reviewed' } : s))
+    return true
   }
 
-  setManagedSubmissions(current =>
-    current.map(submission =>
-      submission.id === submissionId
-        ? { ...submission, status: 'reviewed' }
-        : submission
-    )
-  )
-}
+  async function markDirectReviewed(submissionId: string): Promise<boolean> {
+    if (!supabase) return false
+    const existing = submissions.find(s => s.id === submissionId)
+    if (!existing || existing.status !== 'submitted') return false
+    const { data, error } = await supabase.from('submissions')
+      .update({ status: 'reviewed' })
+      .eq('id', submissionId).eq('status', 'submitted').select('id').maybeSingle()
+    if (error || !data) {
+      setMessage('Review error: ' + (error?.message || 'No submission updated'))
+      return false
+    }
+    setSubmissions(current => current.map(s => s.id === submissionId ? { ...s, status: 'reviewed' } : s))
+    return true
+  }
+
   const loadData = useCallback(async (userId: string) => {
     if (!supabase) return
     setLoading(true)
@@ -86,19 +100,23 @@ export default function Home() {
       const coachResults = await Promise.all([
         supabase.from('profiles').select('*').eq('active', true).order('display_name'),
         supabase.from('parent_managed_players').select('id,display_name,team_id'),
-        supabase.from('parent_managed_submissions').select('id,assignment_id,managed_player_id,status,answers'),
+        supabase.from('parent_managed_submissions').select('id,assignment_id,managed_player_id,status,answers,training_completed'),
         supabase.from('questions').select('*').order('position'),
         supabase.from('assignment_tasks').select('*').order('position'),
-        supabase.from('player_team_memberships').select('managed_player_id,team_id')
+        supabase.from('player_team_memberships').select('managed_player_id,team_id'),
+        supabase.from('answers').select('submission_id,question_id,answer_text'),
+        supabase.from('team_members').select('player_id,team_id')
       ])
       const coachError = coachResults.find(result => result.error)?.error
       if (coachError) { setMessage(coachError.message); setLoading(false); return }
-      const [{ data: people }, { data: managed }, { data: progress }, { data: allQuestionData }, { data: allTaskData }, { data: membershipData }] = coachResults
+      const [{ data: people }, { data: managed }, { data: progress }, { data: allQuestionData }, { data: allTaskData }, { data: membershipData }, { data: answerData }, { data: directTeamData }] = coachResults
       setProfiles((people || []) as Profile[])
       setManagedPlayers((managed || []).map(player => ({...player, team_ids: playerTeamIds(player, (membershipData || []) as TeamMembership[]).filter(id => (t || []).some(team => team.id === id))})))
       setManagedSubmissions((progress || []) as ManagedSubmission[])
       setAllQuestions((allQuestionData || []) as Question[])
       setAllTasks((allTaskData || []) as Task[])
+      setDirectAnswers((answerData || []) as DirectAnswer[])
+      setDirectMemberships((directTeamData || []) as TeamMember[])
     }
     setLoading(false)
   }, [])
@@ -138,7 +156,7 @@ if (recoveryRef.current) {
 }
       setSession(next)
       if (next) setTimeout(() => loadData(next.user.id), 0)
-      else { setProfile(null); setTeams([]); setAssignments([]); setManagedPlayers([]); setManagedSubmissions([]); setLoading(false) }
+      else { setProfile(null); setTeams([]); setAssignments([]); setManagedPlayers([]); setManagedSubmissions([]); setDirectAnswers([]); setDirectMemberships([]); setLoading(false) }
     })
     return () => listener.subscription.unsubscribe()
   }, [loadData])
@@ -183,8 +201,7 @@ if (recoveryRef.current) {
         <nav className="tabs"><button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')}>Dashboard</button><button className={tab==='create'?'active':''} onClick={()=>setTab('create')}>Create Assignment</button><button className={tab==='players'?'active':''} onClick={()=>setTab('players')}>Players</button><a href="/coach/progress">Progress</a><a href="/coach/approvals">Player requests</a><a href="/coach/mindset">Mindset &amp; Confidence</a></nav>
         {tab === 'dashboard' && <CoachDashboard teams={teams} assignments={assignments} submissions={submissions} managedPlayers={managedPlayers} managedSubmissions={managedSubmissions} markManagedReviewed={markManagedReviewed} playerCount={playerCount} submittedCount={submittedCount} onOpen={openAssignment} selected={selectedAssignment} questions={questions} allQuestions={allQuestions} tasks={tasks} />}
         {tab === 'create' && <CreateAssignment userId={profile.id} teams={teams} onCreated={() => { loadData(profile.id); setTab('dashboard') }} setMessage={setMessage} />}
-        {tab === 'players' && <Players teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} assignments={assignments} managedSubmissions={managedSubmissions}
-allQuestions={allQuestions} allTasks={allTasks} />}
+        {tab === 'players' && <PlayersReview teams={teams} profiles={profiles} submissions={submissions} managedPlayers={managedPlayers} assignments={assignments} managedSubmissions={managedSubmissions} allQuestions={allQuestions} allTasks={allTasks} directAnswers={directAnswers} directMemberships={directMemberships} onMarkManagedReviewed={markManagedReviewed} onMarkDirectReviewed={markDirectReviewed} />}
       </> : <PlayerDashboard profile={profile} assignments={assignments.filter(a=>a.status==='published')} submissions={submissions} onRefresh={()=>loadData(profile.id)} setMessage={setMessage} />}
     </main>
   </>
@@ -379,182 +396,6 @@ function CreateAssignment({userId,teams,onCreated,setMessage}:{userId:string;tea
 )}<label className="full">Training task<textarea name="task" placeholder="100 wall passes — 50 right foot / 50 left foot."/></label><button className="primary full" disabled={busy||teams.length===0}>{busy?'Publishing…':'Publish Assignment'}</button></form></section>
 }
 function TeamCreator({userId,onCreated,setMessage}:{userId:string;onCreated:()=>void;setMessage:(m:string)=>void}){const [name,setName]=useState('');async function add(){if(!supabase||!name.trim())return;const {error}=await supabase.from('teams').insert({name:name.trim(),created_by:userId});if(error)setMessage(error.message);else onCreated()}return <div className="callout"><b>No teams yet</b><p>Create your first team before publishing assignments.</p><div className="inline"><input value={name} onChange={e=>setName(e.target.value)} placeholder="12U Girls"/><button className="secondary" type="button" onClick={add}>Create team</button></div></div>}
-
-function Players({
-  assignments,
-  managedSubmissions,
-  allQuestions,
-  allTasks,
-  teams,
-  profiles,
-  submissions,
-  managedPlayers,
-}: {
-  teams: Team[];
-  profiles: Profile[];
-  submissions: Submission[];
-  managedPlayers: ManagedPlayer[];
-  assignments: Assignment[];
-  managedSubmissions: ManagedSubmission[];
-  allQuestions: Question[];
-  allTasks: Task[];
-}) {
-  const players = profiles.filter((p) => p.role === 'player');
-  const [selectedManagedPlayer, setSelectedManagedPlayer] = useState<ManagedPlayer | null>(null);
-  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
-  if (selectedManagedPlayer && selectedAssignment) {
-  const submission = managedSubmissions.find(
-    (s) =>
-      s.assignment_id === selectedAssignment.id &&
-      s.managed_player_id === selectedManagedPlayer.id
-  );
-
-  return (
-    <section className="card">
-      <button
-        type="button"
-        className="linkButton left"
-        onClick={() => setSelectedAssignment(null)}
-      >
-        ← Back to assignment history
-      </button>
-
-      <h2>{selectedAssignment.title}</h2>
-
-      <p className="muted">
-        {submission?.status?.replace(/_/g, ' ') || 'not started'}
-      </p>
-{allTasks
-  .filter((task) => task.assignment_id === selectedAssignment.id)
-  .map((task) => (
-    <div className="contentLine" key={task.id}>
-      <b>Training Task</b>
-      <span>{task.description}</span>
-    </div>
-  ))}
-      {submission?.answers && (
-        <div>
-          <h3>Player Answers</h3>
-
-          {Object.entries(submission.answers).map(([questionId, answer]) => {
-  const question = allQuestions.find(
-    (q) => q.id === questionId
-  );
-
-  return (
-    <div className="contentLine" key={questionId}>
-      <b>{question?.prompt || 'Question'}</b>
-      <span>{answer}</span>
-    </div>
-  );
-})}
-        </div>
-      )}
-    </section>
-  );
-}
-  if (selectedManagedPlayer) {
-  return (
-    <section className="card">
-      <button
-        type="button"
-        className="linkButton left"
-        onClick={() => setSelectedManagedPlayer(null)}
-      >
-        ← Back to players
-      </button>
-
-      <h2>{selectedManagedPlayer.display_name}</h2>
-
-      <p className="muted">
-        {teams.filter(t => selectedManagedPlayer.team_ids.includes(t.id)).map(t => t.name).join(' · ') || 'Player'}
-      </p>
-
-      <div>
-  <h3>Assignment History</h3>
-
-  {assignments
-    .filter((a) => selectedManagedPlayer.team_ids.includes(a.team_id))
-    .map((a) => {
-      const submission = managedSubmissions.find(
-        (s) =>
-          s.assignment_id === a.id &&
-          s.managed_player_id === selectedManagedPlayer.id
-      );
-
-      return (
-        <div
-  className="playerRow"
-  key={a.id}
-  onClick={() => setSelectedAssignment(a)}
-  style={{ cursor: 'pointer' }}
->
-          <div className="grow">
-            <b>{a.title}</b>
-            <div className="muted">
-              {submission?.status?.replace(/_/g, ' ') || 'not started'}
-            </div>
-          </div>
-        </div>
-      );
-    })}
-</div>
-    </section>
-  );
-}
-  return (
-    <section className="card">
-      <h2>Players</h2>
-
-      {players.map((p) => (
-        <div className="playerRow" key={p.id}>
-          <div className="avatar">
-            {p.display_name.slice(0, 1).toUpperCase()}
-          </div>
-
-          <div className="grow">
-            <b>{p.display_name}</b>
-            <div className="muted">{p.username || 'Player account'}</div>
-          </div>
-
-          <span className="pill">
-            {
-              submissions.filter(
-                (s) =>
-                  s.player_id === p.id &&
-                  ['submitted', 'reviewed'].includes(s.status)
-              ).length
-            } submitted
-          </span>
-        </div>
-      ))}
-
-      {managedPlayers.map((p) => (
-        <div
-  className="playerRow"
-  key={p.id}
-  onClick={() => setSelectedManagedPlayer(p)}
-  style={{ cursor: 'pointer' }}
->
-          <div className="avatar">
-            {p.display_name.slice(0, 1).toUpperCase()}
-          </div>
-
-          <div className="grow">
-            <b>{p.display_name}</b>
-            <div className="muted">
-              {teams.filter(t => p.team_ids.includes(t.id)).map(t => t.name).join(' · ') || 'Parent-managed player'}
-            </div>
-          </div>
-        </div>
-      ))}
-
-      {players.length === 0 && managedPlayers.length === 0 && (
-        <Empty text="No players yet." />
-      )}
-    </section>
-  );
-}
 
 function PlayerDashboard({profile,assignments,submissions,onRefresh,setMessage}:{profile:Profile;assignments:Assignment[];submissions:Submission[];onRefresh:()=>void;setMessage:(m:string)=>void}){
  const [open,setOpen]=useState<Assignment|null>(null);const [qs,setQs]=useState<Question[]>([]);const [ts,setTs]=useState<Task[]>([]);const [answers,setAnswers]=useState<Record<string,string>>({});const [done,setDone]=useState<Record<string,boolean>>({});const [busy,setBusy]=useState(false)
