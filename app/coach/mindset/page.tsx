@@ -34,7 +34,7 @@ export default function CoachMindsetPage() {
 
   const [resourceType, setResourceType] =
 
-    useState<ResourceType>("pdf");
+    useState<ResourceType>("video");
 
   const [resources, setResources] = useState<Resource[]>([]);
 
@@ -153,6 +153,8 @@ export default function CoachMindsetPage() {
     const form = event.currentTarget;
 
     const fields = new FormData(form);
+    const publishType = String(fields.get("resource_type")) as ResourceType;
+    if (!["pdf", "video", "link"].includes(publishType)) { setMessage("Invalid resource type."); return; }
 
     const title = String(fields.get("title") || "").trim();
 
@@ -190,7 +192,7 @@ export default function CoachMindsetPage() {
 
       let videoUrl: string | null = null;
 
-      if (resourceType === "link") {
+      if (publishType === "link") {
 
         const enteredUrl =
 
@@ -244,7 +246,7 @@ export default function CoachMindsetPage() {
 
         const validFile =
 
-          resourceType === "pdf"
+          publishType === "pdf"
 
             ? extension === "pdf"
 
@@ -254,7 +256,7 @@ export default function CoachMindsetPage() {
 
           throw new Error(
 
-            resourceType === "pdf"
+            publishType === "pdf"
 
               ? "Choose a PDF file."
 
@@ -302,7 +304,7 @@ export default function CoachMindsetPage() {
 
           description,
 
-          resource_type: resourceType,
+          resource_type: publishType,
 
           file_path: uploadedPath,
 
@@ -456,9 +458,12 @@ export default function CoachMindsetPage() {
 
             <section className="card section">
 
-              <h2>Upload curriculum</h2>
+              <div className="eyebrow">FOR ALL THREE TEAMS</div>
+              <h2>Video Library — Add a video</h2>
+              <p className="muted">Publish confidence and mindset videos for all 11U, 12U and 13U families.</p>
 
               <form className="form" onSubmit={publish}>
+                <input type="hidden" name="resource_type" value={resourceType} />
 
                 <fieldset
 
@@ -480,7 +485,7 @@ export default function CoachMindsetPage() {
 
                       required
 
-                      placeholder="Confidence Building Exercises"
+                      placeholder="Building Confidence Before a Game"
 
                     />
 
@@ -522,7 +527,7 @@ export default function CoachMindsetPage() {
 
                     >
 
-                      <option value="pdf">PDF document</option>
+                      
 
                       <option value="video">Video file</option>
 
@@ -556,7 +561,7 @@ export default function CoachMindsetPage() {
 
                     <label>
 
-                      Choose {resourceType === "pdf" ? "PDF" : "video"}
+                      Choose video
 
                       <input
 
@@ -570,11 +575,7 @@ export default function CoachMindsetPage() {
 
                         accept={
 
-                          resourceType === "pdf"
-
-                            ? ".pdf,application/pdf"
-
-                            : ".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm"
+                          ".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm"
 
                         }
 
@@ -594,7 +595,7 @@ export default function CoachMindsetPage() {
 
                   <button className="primary" type="submit">
 
-                    {busy ? "Publishing..." : "Publish curriculum"}
+                    {busy ? "Publishing..." : "Publish video"}
 
                   </button>
 
@@ -604,40 +605,46 @@ export default function CoachMindsetPage() {
 
             </section>
 
+            <section className="card section" id="pdf-guides">
+              <h2>PDF Guides &amp; Exercises</h2>
+              <p className="muted">Upload written mindset exercises and reference guides separately from videos.</p>
+              <form className="form" onSubmit={publish}>
+                <input type="hidden" name="resource_type" value="pdf" />
+                <fieldset disabled={busy} className="form" style={{ border: 0, padding: 0, margin: 0 }}>
+                  <label>Guide title<input name="title" required maxLength={150} placeholder="Pre-Game Confidence Checklist" /></label>
+                  <label>Description<textarea name="description" rows={3} placeholder="What will players learn?" /></label>
+                  <label>Choose PDF<input name="file" type="file" required accept=".pdf,application/pdf" /></label>
+                  <p className="muted small">PDF uploads must be under 50 MB.</p>
+                  <button className="primary" disabled={busy} type="submit">{busy ? "Publishing..." : "Publish PDF guide"}</button>
+                </fieldset>
+              </form>
+            </section>
+
+
             <section className="card section">
-
-              <h2>Published curriculum</h2>
-
-              {resources.length === 0 ? (
-
-                <p className="muted">No resources published yet.</p>
-
-              ) : (
-
-                resources.map((resource) => (
-
-                  <div className="contentLine" key={resource.id}>
-
-                    <b>{resource.title}</b>
-
-                    <span>
-
-                      {resource.resource_type.toUpperCase()}
-
-                      {resource.description
-
-                        ? ` · ${resource.description}`
-
-                        : ""}
-
-                    </span>
-
-                  </div>
-
-                ))
-
-              )}
-
+              <div className="sectionHead">
+                <div><h2>Published Video Library</h2><p className="muted">All videos and links appear in the family library automatically.</p></div>
+                <span className="pill">{resources.filter(r => r.resource_type !== "pdf").length} videos</span>
+              </div>
+              {resources.filter(r => r.resource_type !== "pdf").length === 0 ? (
+                <p className="muted">No videos published yet.</p>
+              ) : resources.filter(r => r.resource_type !== "pdf").map(r => (
+                <div className="mindsetResourceRow" key={r.id}>
+                  <span className="mindsetResourceIcon" aria-hidden="true">▶</span>
+                  <div><strong>{r.title}</strong><span className="muted small">{r.resource_type === "link" ? "Video link" : "Uploaded video"}{r.description ? " · " + r.description : ""}</span></div>
+                </div>
+              ))}
+            </section>
+            <section className="card section">
+              <div className="sectionHead"><h2>Published PDF Guides</h2><span className="pill">{resources.filter(r => r.resource_type === "pdf").length} guides</span></div>
+              {resources.filter(r => r.resource_type === "pdf").length === 0 ? (
+                <p className="muted">No PDF guides published yet.</p>
+              ) : resources.filter(r => r.resource_type === "pdf").map(r => (
+                <div className="mindsetResourceRow" key={r.id}>
+                  <span className="mindsetResourceIcon" aria-hidden="true">▤</span>
+                  <div><strong>{r.title}</strong>{r.description && <span className="muted small">{r.description}</span>}</div>
+                </div>
+              ))}
             </section>
 
           </>
